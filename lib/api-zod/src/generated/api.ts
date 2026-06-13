@@ -51,6 +51,7 @@ export const LoginResponse = zod.object({
   "phone_number": zod.string(),
   "university": zod.string(),
   "gender": zod.enum(['M', 'F', 'O']),
+  "avatar_url": zod.string().nullish(),
   "created_at": zod.string().optional()
 }),
   "token": zod.string()
@@ -67,6 +68,26 @@ export const GetMeResponse = zod.object({
   "phone_number": zod.string(),
   "university": zod.string(),
   "gender": zod.enum(['M', 'F', 'O']),
+  "avatar_url": zod.string().nullish(),
+  "created_at": zod.string().optional()
+})
+
+
+/**
+ * @summary Update current user profile (avatar etc.)
+ */
+export const UpdateProfileBody = zod.object({
+  "avatar_url": zod.string().nullish()
+})
+
+export const UpdateProfileResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "email": zod.string(),
+  "phone_number": zod.string(),
+  "university": zod.string(),
+  "gender": zod.enum(['M', 'F', 'O']),
+  "avatar_url": zod.string().nullish(),
   "created_at": zod.string().optional()
 })
 
@@ -78,7 +99,11 @@ export const ListRidesQueryParams = zod.object({
   "origin": zod.coerce.string().optional(),
   "destination": zod.coerce.string().optional(),
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']).optional(),
-  "date": zod.coerce.string().optional().describe('Filter by departure date (YYYY-MM-DD)')
+  "date": zod.coerce.string().optional().describe('Filter by departure date (YYYY-MM-DD)'),
+  "origin_lat": zod.coerce.number().optional().describe('Search origin latitude for proximity sort'),
+  "origin_lng": zod.coerce.number().optional().describe('Search origin longitude for proximity sort'),
+  "dest_lat": zod.coerce.number().optional().describe('Search destination latitude for proximity sort'),
+  "dest_lng": zod.coerce.number().optional().describe('Search destination longitude for proximity sort')
 })
 
 export const ListRidesResponseItem = zod.object({

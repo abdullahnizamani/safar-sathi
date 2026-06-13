@@ -15,4 +15,20 @@ gender_preference?: ListRidesGenderPreference;
  * Filter by departure date (YYYY-MM-DD)
  */
 date?: string;
+/**
+ * Search origin latitude for proximity sort
+ */
+origin_lat?: number;
+/**
+ * Search origin longitude for proximity sort
+ */
+origin_lng?: number;
+/**
+ * Search destination latitude for proximity sort
+ */
+dest_lat?: number;
+/**
+ * Search destination longitude for proximity sort
+ */
+dest_lng?: number;
 };

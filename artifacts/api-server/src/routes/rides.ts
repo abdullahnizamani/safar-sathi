@@ -13,6 +13,19 @@ import { getUserFromRequest } from "./auth";
 
 const router: IRouter = Router();
 
+// Haversine formula — returns distance in km between two lat/lng pairs
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 async function getDriverAvgRating(driverId: number): Promise<number | null> {
   const [result] = await db
     .select({ avg: avg(reviewsTable.rating) })
@@ -76,12 +89,57 @@ router.get("/rides", async (req, res): Promise<void> => {
 
   let filtered = rides;
   if (params.success) {
-    const { origin, destination } = params.data;
-    if (origin) {
+    const { origin, destination, origin_lat, origin_lng, dest_lat, dest_lng } = params.data;
+
+    // Text filters (applied when no coords — coords take precedence for origin/dest)
+    if (origin && origin_lat == null) {
       filtered = filtered.filter(r => r.origin.toLowerCase().includes(origin.toLowerCase()));
     }
-    if (destination) {
+    if (destination && dest_lat == null) {
       filtered = filtered.filter(r => r.destination.toLowerCase().includes(destination.toLowerCase()));
+    }
+
+    // Proximity filter: keep rides within 50 km of the search origin AND sort by proximity
+    const hasOriginCoords = origin_lat != null && origin_lng != null;
+    const hasDestCoords = dest_lat != null && dest_lng != null;
+
+    if (hasOriginCoords || hasDestCoords) {
+      // Score each ride by combined distance — rides without coords are pushed to the end
+      type ScoredRide = { ride: typeof rides[0]; score: number };
+      const scored: ScoredRide[] = filtered.map((r) => {
+        const rOriginLat = r.originLat != null ? parseFloat(r.originLat) : null;
+        const rOriginLng = r.originLng != null ? parseFloat(r.originLng) : null;
+        const rDestLat = r.destLat != null ? parseFloat(r.destLat) : null;
+        const rDestLng = r.destLng != null ? parseFloat(r.destLng) : null;
+
+        let score = 0;
+
+        if (hasOriginCoords && rOriginLat != null && rOriginLng != null) {
+          score += haversineKm(origin_lat!, origin_lng!, rOriginLat, rOriginLng);
+        } else if (hasOriginCoords) {
+          score += 9999; // no coords — deprioritise
+        }
+
+        if (hasDestCoords && rDestLat != null && rDestLng != null) {
+          score += haversineKm(dest_lat!, dest_lng!, rDestLat, rDestLng);
+        } else if (hasDestCoords) {
+          score += 9999;
+        }
+
+        return { ride: r, score };
+      });
+
+      // If origin coords given, drop rides more than 50 km away from origin (when the ride itself has coords)
+      const pruned = hasOriginCoords
+        ? scored.filter(({ ride, score }) => {
+            const rOriginLat = ride.originLat != null ? parseFloat(ride.originLat) : null;
+            if (rOriginLat == null) return true; // keep rides without coords (text match fallback)
+            return score < 50 + (hasDestCoords ? 9999 : 0); // 50 km threshold for origin only
+          })
+        : scored;
+
+      pruned.sort((a, b) => a.score - b.score);
+      filtered = pruned.map(({ ride }) => ride);
     }
   }
 

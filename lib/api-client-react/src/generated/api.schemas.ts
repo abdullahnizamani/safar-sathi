@@ -50,12 +50,19 @@ export interface UserProfile {
   phone_number: string;
   university: string;
   gender: UserProfileGender;
+  /** @nullable */
+  avatar_url?: string | null;
   created_at?: string;
 }
 
 export interface AuthResponse {
   user: UserProfile;
   token: string;
+}
+
+export interface UpdateProfileInput {
+  /** @nullable */
+  avatar_url?: string | null;
 }
 
 export type RideGenderPreference = typeof RideGenderPreference[keyof typeof RideGenderPreference];
@@ -268,6 +275,22 @@ gender_preference?: ListRidesGenderPreference;
  * Filter by departure date (YYYY-MM-DD)
  */
 date?: string;
+/**
+ * Search origin latitude for proximity sort
+ */
+origin_lat?: number;
+/**
+ * Search origin longitude for proximity sort
+ */
+origin_lng?: number;
+/**
+ * Search destination latitude for proximity sort
+ */
+dest_lat?: number;
+/**
+ * Search destination longitude for proximity sort
+ */
+dest_lng?: number;
 };
 
 export type ListRidesGenderPreference = typeof ListRidesGenderPreference[keyof typeof ListRidesGenderPreference];

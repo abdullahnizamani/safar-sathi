@@ -10,6 +10,7 @@ export const usersTable = pgTable("users", {
   phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
   university: varchar("university", { length: 100 }).notNull().default("FAST National University"),
   gender: varchar("gender", { length: 1 }).notNull(), // M, F, O
+  avatarUrl: text("avatar_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

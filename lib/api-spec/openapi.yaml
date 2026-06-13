@@ -101,6 +101,27 @@ paths:
         "401":
           description: Unauthorized
 
+  /auth/profile:
+    patch:
+      operationId: updateProfile
+      tags: [auth]
+      summary: Update current user profile (avatar etc.)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+
   /rides:
     get:
       operationId: listRides
@@ -125,6 +146,26 @@ paths:
           description: Filter by departure date (YYYY-MM-DD)
           schema:
             type: string
+        - name: origin_lat
+          in: query
+          description: Search origin latitude for proximity sort
+          schema:
+            type: number
+        - name: origin_lng
+          in: query
+          description: Search origin longitude for proximity sort
+          schema:
+            type: number
+        - name: dest_lat
+          in: query
+          description: Search destination latitude for proximity sort
+          schema:
+            type: number
+        - name: dest_lng
+          in: query
+          description: Search destination longitude for proximity sort
+          schema:
+            type: number
       responses:
         "200":
           description: OK
@@ -433,8 +474,16 @@ components:
         gender:
           type: string
           enum: [M, F, O]
+        avatar_url:
+          type: ["string", "null"]
         created_at:
           type: string
+
+    UpdateProfileInput:
+      type: object
+      properties:
+        avatar_url:
+          type: ["string", "null"]
 
     Ride:
       type: object

@@ -30,6 +30,7 @@ export * from './rideUpdate';
 export * from './rideUpdateGenderPreference';
 export * from './rideUpdateStatus';
 export * from './statsSummary';
+export * from './updateProfileInput';
 export * from './userProfile';
 export * from './userProfileGender';
 export * from './userReviews';

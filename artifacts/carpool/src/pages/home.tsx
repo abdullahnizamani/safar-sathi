@@ -1,78 +1,109 @@
 import { useState } from "react";
 import { useListRides } from "@workspace/api-client-react";
 import RideCard from "@/components/ride-card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, MapPin, Map, Calendar as CalendarIcon, SlidersHorizontal, X } from "lucide-react";
+import { Search, Calendar as CalendarIcon, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { MapboxGeocoder, type GeocoderResult } from "@/components/mapbox-geocoder";
+
+interface SearchCoords {
+  placeName: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+const emptyCoords = (): SearchCoords => ({ placeName: "", lat: null, lng: null });
 
 export default function Home() {
-  const [origin, setOrigin] = useState("");
-  const [destination, setDestination] = useState("");
+  const [origin, setOrigin] = useState<SearchCoords>(emptyCoords());
+  const [dest, setDest] = useState<SearchCoords>(emptyCoords());
   const [date, setDate] = useState<Date>();
   const [genderPref, setGenderPref] = useState<string>("ANY");
-  
-  const [debouncedOrigin, setDebouncedOrigin] = useState("");
-  const [debouncedDestination, setDebouncedDestination] = useState("");
+
+  // "Committed" search state — only applied when user hits Search
+  const [committed, setCommitted] = useState<{
+    origin: SearchCoords;
+    dest: SearchCoords;
+    date?: Date;
+    gender: string;
+  }>({ origin: emptyCoords(), dest: emptyCoords(), gender: "ANY" });
 
   const handleSearch = () => {
-    setDebouncedOrigin(origin);
-    setDebouncedDestination(destination);
+    setCommitted({ origin, dest, date, gender: genderPref });
   };
 
   const handleClear = () => {
-    setOrigin("");
-    setDestination("");
-    setDebouncedOrigin("");
-    setDebouncedDestination("");
+    const blank = emptyCoords();
+    setOrigin(blank);
+    setDest(blank);
     setDate(undefined);
     setGenderPref("ANY");
+    setCommitted({ origin: blank, dest: blank, gender: "ANY" });
   };
 
   const { data: rides, isLoading } = useListRides({
-    origin: debouncedOrigin || undefined,
-    destination: debouncedDestination || undefined,
-    date: date ? format(date, "yyyy-MM-dd") : undefined,
-    gender_preference: genderPref !== "ANY" ? genderPref as any : undefined
+    origin: committed.origin.placeName || undefined,
+    destination: committed.dest.placeName || undefined,
+    date: committed.date ? format(committed.date, "yyyy-MM-dd") : undefined,
+    gender_preference: committed.gender !== "ANY" ? (committed.gender as any) : undefined,
+    // Proximity coords — only sent when coordinates are captured from geocoder
+    ...(committed.origin.lat != null && committed.origin.lng != null
+      ? { origin_lat: committed.origin.lat, origin_lng: committed.origin.lng }
+      : {}),
+    ...(committed.dest.lat != null && committed.dest.lng != null
+      ? { dest_lat: committed.dest.lat, dest_lng: committed.dest.lng }
+      : {}),
   });
+
+  const hasFilters =
+    !!origin.placeName || !!dest.placeName || !!date || genderPref !== "ANY";
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <section className="bg-card border rounded-2xl p-6 shadow-sm">
         <h1 className="text-2xl font-bold mb-6 text-foreground">Find a ride</h1>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-3 relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Leaving from..." 
-              className="pl-9 bg-background/50 border-border/60 focus:bg-background"
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            />
-          </div>
-          
-          <div className="md:col-span-3 relative">
-            <Map className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Going to..." 
-              className="pl-9 bg-background/50 border-border/60 focus:bg-background"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          {/* Origin geocoder */}
+          <div className="md:col-span-3">
+            <MapboxGeocoder
+              placeholder="Leaving from..."
+              value={origin.placeName}
+              onSelect={(r: GeocoderResult) =>
+                setOrigin({ placeName: r.placeName, lat: r.lat, lng: r.lng })
+              }
+              onClear={() => setOrigin(emptyCoords())}
             />
           </div>
 
+          {/* Destination geocoder */}
+          <div className="md:col-span-3">
+            <MapboxGeocoder
+              placeholder="Going to..."
+              value={dest.placeName}
+              onSelect={(r: GeocoderResult) =>
+                setDest({ placeName: r.placeName, lat: r.lat, lng: r.lng })
+              }
+              onClear={() => setDest(emptyCoords())}
+            />
+          </div>
+
+          {/* Date picker */}
           <div className="md:col-span-2">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-background/50 border-border/60", !date && "text-muted-foreground")}>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal bg-background/50 border-border/60",
+                    !date && "text-muted-foreground"
+                  )}
+                >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {date ? format(date, "PPP") : <span>Date</span>}
                 </Button>
@@ -88,6 +119,7 @@ export default function Home() {
             </Popover>
           </div>
 
+          {/* Gender preference */}
           <div className="md:col-span-2">
             <Select value={genderPref} onValueChange={setGenderPref}>
               <SelectTrigger className="bg-background/50 border-border/60">
@@ -101,12 +133,18 @@ export default function Home() {
             </Select>
           </div>
 
+          {/* Actions */}
           <div className="md:col-span-2 flex gap-2">
             <Button onClick={handleSearch} className="flex-1 font-bold">
               Search
             </Button>
-            {(origin || destination || date || genderPref !== "ANY") && (
-              <Button variant="ghost" size="icon" onClick={handleClear} className="shrink-0 text-muted-foreground">
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClear}
+                className="shrink-0 text-muted-foreground"
+              >
                 <X className="w-4 h-4" />
               </Button>
             )}
@@ -142,7 +180,8 @@ export default function Home() {
             </div>
             <h3 className="text-lg font-bold mb-2">No rides found</h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              We couldn't find any rides matching your search. Try adjusting your filters or check back later.
+              We couldn't find any rides matching your search. Try adjusting your
+              filters or check back later.
             </p>
             <Button variant="outline" className="mt-6" onClick={handleClear}>
               Clear Filters
@@ -151,7 +190,14 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rides?.map((ride, i) => (
-              <div key={ride.id} className="animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}>
+              <div
+                key={ride.id}
+                className="animate-in fade-in slide-in-from-bottom-4"
+                style={{
+                  animationDelay: `${i * 50}ms`,
+                  animationFillMode: "both",
+                }}
+              >
                 <RideCard ride={ride} />
               </div>
             ))}

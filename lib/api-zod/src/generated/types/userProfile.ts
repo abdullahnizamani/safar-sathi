@@ -14,5 +14,7 @@ export interface UserProfile {
   phone_number: string;
   university: string;
   gender: UserProfileGender;
+  /** @nullable */
+  avatar_url?: string | null;
   created_at?: string;
 }
