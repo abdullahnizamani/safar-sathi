@@ -99,46 +99,53 @@ router.get("/rides", async (req, res): Promise<void> => {
       filtered = filtered.filter(r => r.destination.toLowerCase().includes(destination.toLowerCase()));
     }
 
-    // Proximity filter: keep rides within 50 km of the search origin AND sort by proximity
+    // Proximity filter: keep rides within 15 km radius on each axis, sort by closeness
     const hasOriginCoords = origin_lat != null && origin_lng != null;
     const hasDestCoords = dest_lat != null && dest_lng != null;
 
+    const RADIUS_KM = 15;
+
     if (hasOriginCoords || hasDestCoords) {
-      // Score each ride by combined distance — rides without coords are pushed to the end
-      type ScoredRide = { ride: typeof rides[0]; score: number };
+      type ScoredRide = { ride: typeof rides[0]; originDist: number; destDist: number };
+
       const scored: ScoredRide[] = filtered.map((r) => {
         const rOriginLat = r.originLat != null ? parseFloat(r.originLat) : null;
         const rOriginLng = r.originLng != null ? parseFloat(r.originLng) : null;
         const rDestLat = r.destLat != null ? parseFloat(r.destLat) : null;
         const rDestLng = r.destLng != null ? parseFloat(r.destLng) : null;
 
-        let score = 0;
+        const originDist =
+          hasOriginCoords && rOriginLat != null && rOriginLng != null
+            ? haversineKm(origin_lat!, origin_lng!, rOriginLat, rOriginLng)
+            : Infinity; // ride has no stored origin coords — can't measure, keep it
 
-        if (hasOriginCoords && rOriginLat != null && rOriginLng != null) {
-          score += haversineKm(origin_lat!, origin_lng!, rOriginLat, rOriginLng);
-        } else if (hasOriginCoords) {
-          score += 9999; // no coords — deprioritise
-        }
+        const destDist =
+          hasDestCoords && rDestLat != null && rDestLng != null
+            ? haversineKm(dest_lat!, dest_lng!, rDestLat, rDestLng)
+            : Infinity;
 
-        if (hasDestCoords && rDestLat != null && rDestLng != null) {
-          score += haversineKm(dest_lat!, dest_lng!, rDestLat, rDestLng);
-        } else if (hasDestCoords) {
-          score += 9999;
-        }
-
-        return { ride: r, score };
+        return { ride: r, originDist, destDist };
       });
 
-      // If origin coords given, drop rides more than 50 km away from origin (when the ride itself has coords)
-      const pruned = hasOriginCoords
-        ? scored.filter(({ ride, score }) => {
-            const rOriginLat = ride.originLat != null ? parseFloat(ride.originLat) : null;
-            if (rOriginLat == null) return true; // keep rides without coords (text match fallback)
-            return score < 50 + (hasDestCoords ? 9999 : 0); // 50 km threshold for origin only
-          })
-        : scored;
+      // Drop rides that are provably outside the radius on either axis
+      const pruned = scored.filter(({ originDist, destDist }) => {
+        if (hasOriginCoords && originDist !== Infinity && originDist > RADIUS_KM) return false;
+        if (hasDestCoords && destDist !== Infinity && destDist > RADIUS_KM) return false;
+        return true;
+      });
 
-      pruned.sort((a, b) => a.score - b.score);
+      // Sort: closest combined distance first; Infinity (no coords) pushed to end
+      pruned.sort((a, b) => {
+        const scoreA = (a.originDist === Infinity ? 0 : a.originDist) + (a.destDist === Infinity ? 0 : a.destDist);
+        const scoreB = (b.originDist === Infinity ? 0 : b.originDist) + (b.destDist === Infinity ? 0 : b.destDist);
+        // rides with no stored coords sink below rides that have coords
+        const aHasCoords = a.originDist !== Infinity || a.destDist !== Infinity;
+        const bHasCoords = b.originDist !== Infinity || b.destDist !== Infinity;
+        if (aHasCoords && !bHasCoords) return -1;
+        if (!aHasCoords && bHasCoords) return 1;
+        return scoreA - scoreB;
+      });
+
       filtered = pruned.map(({ ride }) => ride);
     }
   }

@@ -63,7 +63,7 @@ export function MapboxGeocoder({
     setIsLoading(true);
     try {
       const encoded = encodeURIComponent(q);
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${__MAPBOX_TOKEN__}&autocomplete=true&limit=5&types=place,locality,neighborhood,address,poi`;
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${__MAPBOX_TOKEN__}&autocomplete=true&limit=5&types=place,locality,neighborhood,address,poi&country=pk`;
       const res = await fetch(url);
       const data = await res.json();
       setSuggestions(data.features ?? []);
@@ -74,7 +74,6 @@ export function MapboxGeocoder({
       setIsLoading(false);
     }
   }, []);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const q = e.target.value;
     setQuery(q);
