@@ -1,5 +1,8 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import {
@@ -138,14 +141,91 @@ router.patch("/auth/profile", async (req, res): Promise<void> => {
   if ("avatar_url" in parsed.data) {
     updates.avatarUrl = parsed.data.avatar_url ?? null;
   }
+  if ("phone_number" in parsed.data && parsed.data.phone_number !== undefined) {
+    updates.phoneNumber = parsed.data.phone_number;
+  }
+  if ("email" in parsed.data && parsed.data.email !== undefined) {
+    updates.email = parsed.data.email;
+  }
+  if ("university" in parsed.data && parsed.data.university !== undefined) {
+    updates.university = parsed.data.university;
+  }
+
+  try {
+    const [updated] = await db
+      .update(usersTable)
+      .set(updates)
+      .where(eq(usersTable.id, user.id))
+      .returning();
+
+    req.log.info({ userId: user.id }, "Profile updated");
+    res.json(serializeUser(updated));
+  } catch (error: any) {
+    req.log.error({ userId: user.id, error: error.message }, "Profile update failed");
+    if (error.code === "23505" || error.message?.includes("unique")) {
+      res.status(400).json({ error: "Email already in use" });
+    } else {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+});
+
+router.delete("/auth/profile", async (req, res): Promise<void> => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    await db.delete(usersTable).where(eq(usersTable.id, user.id));
+    req.log.info({ userId: user.id }, "User account closed");
+    res.json({ ok: true });
+  } catch (error: any) {
+    req.log.error({ userId: user.id, error: error.message }, "Failed to delete user account");
+    res.status(500).json({ error: "Failed to close account" });
+  }
+});
+
+const uploadDir = "public/uploads/";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req: any, _file: any, cb: any) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req: any, file: any, cb: any) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + "-" + uniqueSuffix + ext);
+  },
+});
+
+const upload = multer({ storage });
+
+router.post("/users/avatar", upload.single("avatar"), async (req: any, res): Promise<void> => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+
+  const relativePath = `/uploads/${req.file.filename}`;
 
   const [updated] = await db
     .update(usersTable)
-    .set(updates)
+    .set({ avatarUrl: relativePath })
     .where(eq(usersTable.id, user.id))
     .returning();
 
-  req.log.info({ userId: user.id }, "Profile updated");
+  req.log.info({ userId: user.id }, "Avatar uploaded");
   res.json(serializeUser(updated));
 });
 

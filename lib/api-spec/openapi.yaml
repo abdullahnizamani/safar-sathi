@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: CampusRide carpooling API
+  description: SafarSathi carpooling API
 servers:
   - url: /api
     description: Base API path
@@ -119,6 +119,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+    delete:
+      operationId: deleteAccount
+      tags: [auth]
+      summary: Close/delete current user account
+      responses:
+        "200":
+          description: Account closed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
         "401":
           description: Unauthorized
 
@@ -484,6 +500,12 @@ components:
       properties:
         avatar_url:
           type: ["string", "null"]
+        phone_number:
+          type: string
+        email:
+          type: string
+        university:
+          type: string
 
     Ride:
       type: object

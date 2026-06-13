@@ -227,9 +227,9 @@ export default function MyRequests() {
                           onClick={() =>
                             openReview({
                               rideId: req.ride_id,
-                              driverId: req.ride.driver_id,
-                              driverName: req.ride.driver_name,
-                              rideLabel: `${req.ride.origin} → ${req.ride.destination}`,
+                              driverId: req.ride!.driver_id,
+                              driverName: req.ride!.driver_name,
+                              rideLabel: `${req.ride!.origin} → ${req.ride!.destination}`,
                             })
                           }
                           className="shrink-0"

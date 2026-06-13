@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { LogOut, Home, PlusCircle, Car, Map, User, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 export default function Layout({ children }: { children: ReactNode }) {
   const { isAuthenticated, logout } = useAuth();
   const [location, setLocation] = useLocation();
-  const { data: user, isLoading } = useGetMe({ query: { enabled: isAuthenticated } });
+  const { data: user, isLoading } = useGetMe({ query: { queryKey: getGetMeQueryKey(), enabled: isAuthenticated } });
 
   const handleLogout = () => {
     logout();
@@ -33,7 +33,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
             <Car className="w-6 h-6" />
-            <span>CampusRide</span>
+            <span>SafarSathi</span>
           </Link>
           
           {isAuthenticated ? (

@@ -52,8 +52,8 @@ export default function Register() {
         <div className="flex justify-center mb-6 text-primary">
           <Car className="w-12 h-12" />
         </div>
-        <h1 className="text-2xl font-bold text-center mb-2">Join CampusRide</h1>
-        <p className="text-center text-muted-foreground mb-8">Find your campus commute</p>
+        <h1 className="text-2xl font-bold text-center mb-2">Join SafarSathi</h1>
+        <p className="text-center text-muted-foreground mb-8">Find your commute</p>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

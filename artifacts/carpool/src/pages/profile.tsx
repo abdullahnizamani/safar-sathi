@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useGetMe, useGetUserReviews, useUpdateProfile, getGetMeQueryKey } from "@workspace/api-client-react";
+import {
+  useGetMe,
+  useGetUserReviews,
+  useUpdateProfile,
+  useDeleteAccount,
+  getGetMeQueryKey,
+  getGetUserReviewsQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -18,7 +25,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { LogOut, Star, MessageSquare, GraduationCap, Phone, Mail, User, Camera, Check } from "lucide-react";
+import { LogOut, Star, MessageSquare, GraduationCap, Phone, Mail, User, Camera, Check, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -54,23 +61,57 @@ export default function Profile() {
   const queryClient = useQueryClient();
 
   const { data: user, isLoading: userLoading } = useGetMe({
-    query: { enabled: isAuthenticated },
+    query: { queryKey: getGetMeQueryKey(), enabled: isAuthenticated },
   });
 
   const { data: reviewData, isLoading: reviewLoading } = useGetUserReviews(
     user?.id ?? 0,
-    { query: { enabled: !!user?.id } }
+    { query: { queryKey: getGetUserReviewsQueryKey(user?.id ?? 0), enabled: !!user?.id } }
   );
 
   const updateProfile = useUpdateProfile();
+  const deleteAccount = useDeleteAccount();
 
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
-  const [customUrl, setCustomUrl] = useState("");
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [university, setUniversity] = useState("");
+  const [closeAccountDialogOpen, setCloseAccountDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setEmail(user.email);
+      setPhone(user.phone_number);
+      setUniversity(user.university);
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
     setLocation("/login");
+  };
+
+  const handleCloseAccount = () => {
+    deleteAccount.mutate(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Account closed successfully",
+          description: "Your SafarSathi account has been deleted.",
+        });
+        logout();
+        setLocation("/login");
+      },
+      onError: (err: any) => {
+        const errMsg = err?.response?.data?.error || err?.message || "Failed to close account";
+        toast({
+          title: "Error",
+          description: errMsg,
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : "?";
@@ -83,8 +124,39 @@ export default function Profile() {
 
   const openAvatarDialog = () => {
     setPendingUrl(user?.avatar_url ?? null);
-    setCustomUrl(user?.avatar_url ?? "");
     setAvatarDialogOpen(true);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    try {
+      const token = localStorage.getItem("carpool_token");
+      const response = await fetch("/api/users/avatar", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload avatar");
+      }
+
+      const data = await response.json();
+      setPendingUrl(data.avatar_url);
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      toast({ title: "Avatar uploaded successfully!" });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    }
   };
 
   const saveAvatar = () => {
@@ -271,6 +343,126 @@ export default function Profile() {
         </CardContent>
       </Card>
 
+      {/* Edit Profile Details card */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <User className="w-5 h-5 text-primary" />
+            Edit Profile Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!email.trim() || !phone.trim() || !university.trim()) {
+                toast({
+                  title: "Validation Error",
+                  description: "All fields are required",
+                  variant: "destructive",
+                });
+                return;
+              }
+              updateProfile.mutate(
+                {
+                  data: {
+                    email: email.trim(),
+                    phone_number: phone.trim(),
+                    university: university.trim(),
+                  },
+                },
+                {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+                    toast({ title: "Profile updated successfully!" });
+                  },
+                  onError: (err: any) => {
+                    const errMsg =
+                      err?.response?.data?.error || err?.message || "Could not update profile";
+                    toast({
+                      title: "Update failed",
+                      description: errMsg,
+                      variant: "destructive",
+                    });
+                  },
+                }
+              );
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <label htmlFor="edit-email" className="text-sm font-semibold text-muted-foreground">
+                Email Address
+              </label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="edit-phone" className="text-sm font-semibold text-muted-foreground">
+                Phone Number
+              </label>
+              <Input
+                id="edit-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="e.g. +92 300 1234567"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="edit-university" className="text-sm font-semibold text-muted-foreground">
+                Institute / University
+              </label>
+              <Input
+                id="edit-university"
+                type="text"
+                value={university}
+                onChange={(e) => setUniversity(e.target.value)}
+                placeholder="FAST National University"
+                required
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full font-semibold"
+              disabled={updateProfile.isPending}
+            >
+              {updateProfile.isPending ? "Saving changes..." : "Save Changes"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone */}
+      <Card className="border border-destructive/30 bg-destructive/5 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+            <AlertTriangle className="w-5 h-5 text-destructive" />
+            Danger Zone
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Permanently close your SafarSathi account. This action is irreversible and will delete all your ride postings, ride requests, and reviews.
+          </p>
+          <Button
+            variant="destructive"
+            className="w-full font-semibold bg-destructive hover:bg-destructive/90"
+            onClick={() => setCloseAccountDialogOpen(true)}
+            data-testid="button-close-account"
+          >
+            Close My Account
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Logout */}
       <Button
         variant="destructive"
@@ -329,27 +521,17 @@ export default function Profile() {
 
             <Separator />
 
-            {/* Custom URL input */}
+            {/* File Upload input */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Or paste an image URL
+                Or upload an image file
               </p>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://example.com/photo.jpg"
-                  value={customUrl}
-                  onChange={(e) => setCustomUrl(e.target.value)}
-                  className="flex-1 text-sm"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => customUrl.trim() && setPendingUrl(customUrl.trim())}
-                  disabled={!customUrl.trim()}
-                >
-                  Use
-                </Button>
-              </div>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="text-sm cursor-pointer"
+              />
               {pendingUrl && !PRESET_AVATARS.some((p) => p.url === pendingUrl) && (
                 <div className="flex items-center gap-3 mt-2">
                   <img
@@ -374,7 +556,6 @@ export default function Profile() {
                 className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
                 onClick={() => {
                   setPendingUrl(null);
-                  setCustomUrl("");
                 }}
               >
                 Remove avatar (use initials)
@@ -388,6 +569,41 @@ export default function Profile() {
             </Button>
             <Button onClick={saveAvatar} disabled={updateProfile.isPending}>
               {updateProfile.isPending ? "Saving..." : "Save Avatar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Close Account Confirmation dialog */}
+      <Dialog open={closeAccountDialogOpen} onOpenChange={setCloseAccountDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Are you absolutely sure?
+            </DialogTitle>
+            <div className="space-y-2 pt-2 text-sm text-muted-foreground">
+              <p>
+                This will permanently delete your SafarSathi account (<strong>{user?.username}</strong>) and all associated data.
+              </p>
+              <p className="text-destructive font-semibold">
+                This action cannot be undone.
+              </p>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => setCloseAccountDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCloseAccount}
+              disabled={deleteAccount.isPending}
+            >
+              {deleteAccount.isPending ? "Closing account..." : "Permanently Close Account"}
             </Button>
           </DialogFooter>
         </DialogContent>

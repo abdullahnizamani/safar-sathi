@@ -48,7 +48,7 @@ export default function Login() {
         <div className="flex justify-center mb-6 text-primary">
           <Car className="w-12 h-12" />
         </div>
-        <h1 className="text-2xl font-bold text-center mb-2">Sign in to CampusRide</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">Sign in to SafarSathi</h1>
         <p className="text-center text-muted-foreground mb-8">Ready to catch a ride?</p>
 
         <Form {...form}>

@@ -63,10 +63,43 @@ export function MapboxGeocoder({
     setIsLoading(true);
     try {
       const encoded = encodeURIComponent(q);
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${__MAPBOX_TOKEN__}&autocomplete=true&limit=5&types=place,locality,neighborhood,address,poi&country=pk`;
+      const url = `https://photon.komoot.io/api/?q=${encoded}&limit=20&lat=24.8607&lon=67.0011&bbox=60.83,23.58,77.83,37.08`;
+      
       const res = await fetch(url);
+      if (!res.ok) {
+        setSuggestions([]);
+        return;
+      }
       const data = await res.json();
-      setSuggestions(data.features ?? []);
+      
+      // Map Photon GeoJSON features to Mapbox GeocoderFeature structure
+      const mappedFeatures = (data.features ?? []).map((feat: any, idx: number) => {
+        const props = feat.properties || {};
+        const name = props.name || "";
+        const street = props.street || "";
+        const housenumber = props.housenumber || "";
+        const city = props.city || "";
+        const state = props.state || "";
+        const country = props.country || "";
+
+        const parts = [
+          name,
+          housenumber ? `${housenumber} ${street}`.trim() : street,
+          city,
+          state && state !== city ? state : "",
+          country
+        ].filter(Boolean);
+
+        const place_name = parts.join(", ");
+
+        return {
+          id: props.osm_id?.toString() || idx.toString(),
+          place_name,
+          center: feat.geometry?.coordinates || [0, 0], // [lng, lat]
+        };
+      });
+
+      setSuggestions(mappedFeatures);
       setIsOpen(true);
     } catch {
       setSuggestions([]);
@@ -111,7 +144,7 @@ export function MapboxGeocoder({
           placeholder={placeholder}
           data-testid={testId}
           className="w-full pl-9 pr-9 py-2 text-sm border border-input rounded-md bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          autoComplete="off"
+          autoComplete="new-password"
         />
         <div className="absolute right-3 flex items-center">
           {isLoading ? (

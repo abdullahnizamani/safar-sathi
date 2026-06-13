@@ -6,6 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RideRequestInput {
-  ride_id: number;
-}
+export type DeleteAccount200 = {
+  ok?: boolean;
+};

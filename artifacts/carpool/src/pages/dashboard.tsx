@@ -1,7 +1,8 @@
 import { useGetStatsSummary, getGetStatsSummaryQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, Users, MapPin, Activity, ArrowRight, Badge } from "lucide-react";
+import { Car, Users, MapPin, Activity, ArrowRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useGetStatsSummary({ query: { queryKey: getGetStatsSummaryQueryKey() } });
@@ -23,19 +24,19 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Campus Overview</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight">Overview</h1>
         <p className="text-muted-foreground mt-2">Platform activity and your personal stats.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border shadow-sm">
+        {/* <Card className="border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Open Rides</CardTitle>
             <Car className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.total_open_rides}</div>
-            <p className="text-xs text-muted-foreground mt-1">Available on campus</p>
+            <p className="text-xs text-muted-foreground mt-1">Available</p>
           </CardContent>
         </Card>
 
@@ -48,7 +49,7 @@ export default function Dashboard() {
             <div className="text-3xl font-bold">{stats.total_seats_available}</div>
             <p className="text-xs text-muted-foreground mt-1">Ready to be booked</p>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card className="border shadow-sm bg-primary/5 border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
