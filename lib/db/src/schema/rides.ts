@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, varchar, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -8,6 +8,10 @@ export const ridesTable = pgTable("rides", {
   driverId: integer("driver_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   origin: text("origin").notNull(),
   destination: text("destination").notNull(),
+  originLat: decimal("origin_lat", { precision: 10, scale: 7 }),
+  originLng: decimal("origin_lng", { precision: 10, scale: 7 }),
+  destLat: decimal("dest_lat", { precision: 10, scale: 7 }),
+  destLng: decimal("dest_lng", { precision: 10, scale: 7 }),
   departureTime: timestamp("departure_time", { withTimezone: true }).notNull(),
   availableSeats: integer("available_seats").notNull(),
   fare: integer("fare").notNull().default(0),

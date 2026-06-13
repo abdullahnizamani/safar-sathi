@@ -2,7 +2,7 @@ import { Ride, RideGenderPreference, RideStatus } from "@workspace/api-client-re
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, formatPKR } from "@/lib/format";
-import { MapPin, Clock, Users, ArrowRight, User } from "lucide-react";
+import { MapPin, Clock, Users, ArrowRight, User, Star, Car } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -31,10 +31,23 @@ export function getGenderPreferenceColor(pref: RideGenderPreference) {
   }
 }
 
+function DriverRating({ rating }: { rating: number | null | undefined }) {
+  if (rating == null) return null;
+  return (
+    <div className="flex items-center gap-1" data-testid="driver-rating">
+      <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+      <span className="text-xs font-semibold text-amber-600">{rating.toFixed(1)}</span>
+    </div>
+  );
+}
+
 export default function RideCard({ ride }: RideCardProps) {
   return (
     <Link href={`/rides/${ride.id}`}>
-      <Card className="hover-elevate cursor-pointer transition-all duration-200 group border-border/50 shadow-sm hover:shadow-md hover:border-primary/20">
+      <Card
+        className="hover-elevate cursor-pointer transition-all duration-200 group border-border/50 shadow-sm hover:shadow-md hover:border-primary/20"
+        data-testid={`card-ride-${ride.id}`}
+      >
         <CardHeader className="pb-3 px-5 pt-5">
           <div className="flex justify-between items-start gap-4">
             <div className="flex-1 space-y-1 text-lg font-bold flex items-center flex-wrap gap-2 text-foreground">
@@ -64,7 +77,12 @@ export default function RideCard({ ride }: RideCardProps) {
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <User className="w-4 h-4 shrink-0 text-primary/70" />
-              <span className="truncate font-medium text-foreground/80">{ride.driver_name}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="truncate font-medium text-foreground/80" data-testid={`text-driver-${ride.id}`}>
+                  {ride.driver_name}
+                </span>
+                <DriverRating rating={ride.driver_avg_rating} />
+              </div>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Car className="w-4 h-4 shrink-0 text-primary/70" />
@@ -88,6 +106,3 @@ export default function RideCard({ ride }: RideCardProps) {
     </Link>
   );
 }
-
-// Ensure lucide icon Car is imported
-import { Car } from "lucide-react";

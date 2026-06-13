@@ -5,16 +5,27 @@ import { useGetMe } from "@workspace/api-client-react";
 import { LogOut, Home, PlusCircle, Car, Map, User, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { isAuthenticated, logout } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: user, isLoading } = useGetMe({ query: { enabled: isAuthenticated } });
 
   const handleLogout = () => {
     logout();
     setLocation("/login");
   };
+
+  const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : "?";
+
+  const navLinks = [
+    { href: "/", label: "Find a Ride" },
+    { href: "/rides/new", label: "Post a Ride" },
+    { href: "/my-rides", label: "My Posts" },
+    { href: "/my-requests", label: "My Requests" },
+    { href: "/dashboard", label: "Dashboard" },
+  ];
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
@@ -28,19 +39,35 @@ export default function Layout({ children }: { children: ReactNode }) {
           {isAuthenticated ? (
             <div className="flex items-center gap-4">
               <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
-                <Link href="/" className="hover:text-primary transition-colors">Find a Ride</Link>
-                <Link href="/rides/new" className="hover:text-primary transition-colors">Post a Ride</Link>
-                <Link href="/my-rides" className="hover:text-primary transition-colors">My Posts</Link>
-                <Link href="/my-requests" className="hover:text-primary transition-colors">My Requests</Link>
-                <Link href="/dashboard" className="hover:text-primary transition-colors">Dashboard</Link>
+                {navLinks.map(({ href, label }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`hover:text-primary transition-colors ${location === href ? "text-primary font-semibold" : ""}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
               </nav>
               <div className="flex items-center gap-3 border-l pl-4">
                 {isLoading ? (
-                  <Skeleton className="w-24 h-5" />
+                  <Skeleton className="w-8 h-8 rounded-full" />
                 ) : (
-                  <span className="text-sm font-semibold truncate max-w-[120px]">{user?.username}</span>
+                  <Link href="/profile" data-testid="link-profile">
+                    <Avatar className="w-8 h-8 cursor-pointer border-2 border-primary/20 hover:border-primary/50 transition-colors">
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
                 )}
-                <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="text-muted-foreground hover:text-destructive"
+                  data-testid="button-header-logout"
+                >
                   <LogOut className="w-5 h-5" />
                 </Button>
               </div>
@@ -65,11 +92,11 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Mobile Nav */}
       {isAuthenticated && (
         <nav className="md:hidden sticky bottom-0 left-0 right-0 border-t bg-card flex justify-around p-3 pb-safe z-50">
-          <Link href="/" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
+          <Link href="/" className={`flex flex-col items-center gap-1 ${location === "/" ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
             <Home className="w-5 h-5" />
             <span className="text-[10px] font-medium">Home</span>
           </Link>
-          <Link href="/my-requests" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
+          <Link href="/my-requests" className={`flex flex-col items-center gap-1 ${location === "/my-requests" ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
             <Map className="w-5 h-5" />
             <span className="text-[10px] font-medium">Requests</span>
           </Link>
@@ -77,13 +104,13 @@ export default function Layout({ children }: { children: ReactNode }) {
             <PlusCircle className="w-6 h-6" />
             <span className="text-[10px] font-bold">Post</span>
           </Link>
-          <Link href="/my-rides" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
+          <Link href="/my-rides" className={`flex flex-col items-center gap-1 ${location === "/my-rides" ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
             <Car className="w-5 h-5" />
             <span className="text-[10px] font-medium">My Rides</span>
           </Link>
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
-            <Activity className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Stats</span>
+          <Link href="/profile" className={`flex flex-col items-center gap-1 ${location === "/profile" ? "text-primary" : "text-muted-foreground"} hover:text-primary`} data-testid="link-mobile-profile">
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Profile</span>
           </Link>
         </nav>
       )}

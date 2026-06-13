@@ -11,6 +11,14 @@ import type { RideUpdateStatus } from './rideUpdateStatus';
 export interface RideUpdate {
   origin?: string;
   destination?: string;
+  /** @nullable */
+  origin_lat?: number | null;
+  /** @nullable */
+  origin_lng?: number | null;
+  /** @nullable */
+  dest_lat?: number | null;
+  /** @nullable */
+  dest_lng?: number | null;
   departure_time?: string;
   available_seats?: number;
   fare?: number;

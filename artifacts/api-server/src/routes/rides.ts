@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lt, sql, count } from "drizzle-orm";
-import { db, ridesTable, usersTable, rideRequestsTable } from "@workspace/db";
+import { eq, and, gte, lt, count, avg } from "drizzle-orm";
+import { db, ridesTable, usersTable, rideRequestsTable, reviewsTable } from "@workspace/db";
 import {
   CreateRideBody,
   UpdateRideBody,
@@ -13,6 +13,14 @@ import { getUserFromRequest } from "./auth";
 
 const router: IRouter = Router();
 
+async function getDriverAvgRating(driverId: number): Promise<number | null> {
+  const [result] = await db
+    .select({ avg: avg(reviewsTable.rating) })
+    .from(reviewsTable)
+    .where(eq(reviewsTable.driverId, driverId));
+  return result?.avg ? parseFloat(result.avg) : null;
+}
+
 async function formatRide(ride: typeof ridesTable.$inferSelect, requestCount?: number) {
   const [driver] = await db.select().from(usersTable).where(eq(usersTable.id, ride.driverId));
   let reqCount = requestCount;
@@ -20,13 +28,20 @@ async function formatRide(ride: typeof ridesTable.$inferSelect, requestCount?: n
     const [countResult] = await db.select({ count: count() }).from(rideRequestsTable).where(eq(rideRequestsTable.rideId, ride.id));
     reqCount = Number(countResult?.count ?? 0);
   }
+  const avgRating = await getDriverAvgRating(ride.driverId);
+
   return {
     id: ride.id,
     driver_id: ride.driverId,
     driver_name: driver?.username ?? "Unknown",
     driver_university: driver?.university ?? "",
+    driver_avg_rating: avgRating,
     origin: ride.origin,
     destination: ride.destination,
+    origin_lat: ride.originLat !== null && ride.originLat !== undefined ? parseFloat(ride.originLat) : null,
+    origin_lng: ride.originLng !== null && ride.originLng !== undefined ? parseFloat(ride.originLng) : null,
+    dest_lat: ride.destLat !== null && ride.destLat !== undefined ? parseFloat(ride.destLat) : null,
+    dest_lng: ride.destLng !== null && ride.destLng !== undefined ? parseFloat(ride.destLng) : null,
     departure_time: ride.departureTime.toISOString(),
     available_seats: ride.availableSeats,
     fare: ride.fare,
@@ -41,12 +56,10 @@ async function formatRide(ride: typeof ridesTable.$inferSelect, requestCount?: n
 router.get("/rides", async (req, res): Promise<void> => {
   const params = ListRidesQueryParams.safeParse(req.query);
 
-  let query = db.select().from(ridesTable).where(eq(ridesTable.status, "OPEN")).$dynamic();
+  const conditions: ReturnType<typeof eq>[] = [eq(ridesTable.status, "OPEN")];
 
   if (params.success) {
-    const { origin, destination, gender_preference, date } = params.data;
-    const conditions = [eq(ridesTable.status, "OPEN")];
-
+    const { gender_preference, date } = params.data;
     if (gender_preference) {
       conditions.push(eq(ridesTable.genderPreference, gender_preference));
     }
@@ -57,23 +70,19 @@ router.get("/rides", async (req, res): Promise<void> => {
       conditions.push(gte(ridesTable.departureTime, startOfDay));
       conditions.push(lt(ridesTable.departureTime, endOfDay));
     }
-
-    query = db.select().from(ridesTable).where(and(...conditions)).$dynamic();
   }
 
-  const rides = await query.orderBy(ridesTable.departureTime);
+  const rides = await db.select().from(ridesTable).where(and(...conditions)).orderBy(ridesTable.departureTime);
 
-  // Filter by origin/destination text if provided
   let filtered = rides;
-  if (params.success && params.data.origin) {
-    filtered = filtered.filter(r =>
-      r.origin.toLowerCase().includes(params.data.origin!.toLowerCase())
-    );
-  }
-  if (params.success && params.data.destination) {
-    filtered = filtered.filter(r =>
-      r.destination.toLowerCase().includes(params.data.destination!.toLowerCase())
-    );
+  if (params.success) {
+    const { origin, destination } = params.data;
+    if (origin) {
+      filtered = filtered.filter(r => r.origin.toLowerCase().includes(origin.toLowerCase()));
+    }
+    if (destination) {
+      filtered = filtered.filter(r => r.destination.toLowerCase().includes(destination.toLowerCase()));
+    }
   }
 
   const formatted = await Promise.all(filtered.map(r => formatRide(r)));
@@ -93,12 +102,17 @@ router.post("/rides", async (req, res): Promise<void> => {
     return;
   }
 
-  const { origin, destination, departure_time, available_seats, fare, transport_type, gender_preference } = parsed.data;
+  const { origin, destination, departure_time, available_seats, fare, transport_type, gender_preference,
+          origin_lat, origin_lng, dest_lat, dest_lng } = parsed.data;
 
   const [ride] = await db.insert(ridesTable).values({
     driverId: user.id,
     origin,
     destination,
+    originLat: origin_lat !== null && origin_lat !== undefined ? String(origin_lat) : null,
+    originLng: origin_lng !== null && origin_lng !== undefined ? String(origin_lng) : null,
+    destLat: dest_lat !== null && dest_lat !== undefined ? String(dest_lat) : null,
+    destLng: dest_lng !== null && dest_lng !== undefined ? String(dest_lng) : null,
     departureTime: new Date(departure_time),
     availableSeats: available_seats,
     fare: fare ?? 0,
@@ -172,7 +186,8 @@ router.patch("/rides/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const { origin, destination, departure_time, available_seats, fare, transport_type, gender_preference, status } = parsed.data;
+  const { origin, destination, departure_time, available_seats, fare, transport_type, gender_preference, status,
+          origin_lat, origin_lng, dest_lat, dest_lng } = parsed.data;
 
   const updateData: Partial<typeof ridesTable.$inferInsert> = {};
   if (origin !== undefined) updateData.origin = origin;
@@ -183,6 +198,10 @@ router.patch("/rides/:id", async (req, res): Promise<void> => {
   if (transport_type !== undefined) updateData.transportType = transport_type;
   if (gender_preference !== undefined) updateData.genderPreference = gender_preference;
   if (status !== undefined) updateData.status = status;
+  if (origin_lat !== undefined) updateData.originLat = origin_lat !== null ? String(origin_lat) : null;
+  if (origin_lng !== undefined) updateData.originLng = origin_lng !== null ? String(origin_lng) : null;
+  if (dest_lat !== undefined) updateData.destLat = dest_lat !== null ? String(dest_lat) : null;
+  if (dest_lng !== undefined) updateData.destLng = dest_lng !== null ? String(dest_lng) : null;
 
   const [updated] = await db.update(ridesTable).set(updateData).where(eq(ridesTable.id, params.data.id)).returning();
 

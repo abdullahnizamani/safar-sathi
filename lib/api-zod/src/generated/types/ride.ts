@@ -13,8 +13,18 @@ export interface Ride {
   driver_id: number;
   driver_name: string;
   driver_university?: string;
+  /** @nullable */
+  driver_avg_rating?: number | null;
   origin: string;
   destination: string;
+  /** @nullable */
+  origin_lat?: number | null;
+  /** @nullable */
+  origin_lng?: number | null;
+  /** @nullable */
+  dest_lat?: number | null;
+  /** @nullable */
+  dest_lng?: number | null;
   departure_time: string;
   available_seats: number;
   fare: number;

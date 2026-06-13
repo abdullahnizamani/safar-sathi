@@ -82,8 +82,18 @@ export interface Ride {
   driver_id: number;
   driver_name: string;
   driver_university?: string;
+  /** @nullable */
+  driver_avg_rating?: number | null;
   origin: string;
   destination: string;
+  /** @nullable */
+  origin_lat?: number | null;
+  /** @nullable */
+  origin_lng?: number | null;
+  /** @nullable */
+  dest_lat?: number | null;
+  /** @nullable */
+  dest_lng?: number | null;
   departure_time: string;
   available_seats: number;
   fare: number;
@@ -108,6 +118,14 @@ export interface RideInput {
   origin: string;
   /** @minLength 1 */
   destination: string;
+  /** @nullable */
+  origin_lat?: number | null;
+  /** @nullable */
+  origin_lng?: number | null;
+  /** @nullable */
+  dest_lat?: number | null;
+  /** @nullable */
+  dest_lng?: number | null;
   departure_time: string;
   /** @minimum 1 */
   available_seats: number;
@@ -139,6 +157,14 @@ export const RideUpdateStatus = {
 export interface RideUpdate {
   origin?: string;
   destination?: string;
+  /** @nullable */
+  origin_lat?: number | null;
+  /** @nullable */
+  origin_lng?: number | null;
+  /** @nullable */
+  dest_lat?: number | null;
+  /** @nullable */
+  dest_lng?: number | null;
   departure_time?: string;
   available_seats?: number;
   fare?: number;
@@ -182,6 +208,41 @@ export const RideRequestUpdateStatus = {
 
 export interface RideRequestUpdate {
   status: RideRequestUpdateStatus;
+}
+
+export interface Review {
+  id: number;
+  reviewer_id: number;
+  reviewer_name: string;
+  driver_id: number;
+  ride_id: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+  /** @nullable */
+  comment?: string | null;
+  created_at: string;
+}
+
+export interface ReviewInput {
+  driver_id: number;
+  ride_id: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+  comment?: string;
+}
+
+export interface UserReviews {
+  user_id: number;
+  /** @nullable */
+  avg_rating: number | null;
+  review_count: number;
+  reviews: Review[];
 }
 
 export interface PopularRoute {

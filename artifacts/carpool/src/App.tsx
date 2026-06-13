@@ -14,6 +14,7 @@ import RideDetail from "@/pages/ride-detail";
 import MyRides from "@/pages/my-rides";
 import MyRequests from "@/pages/my-requests";
 import Dashboard from "@/pages/dashboard";
+import Profile from "@/pages/profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ function AppContent() {
               <Route path="/my-rides" component={MyRides} />
               <Route path="/my-requests" component={MyRequests} />
               <Route path="/dashboard" component={Dashboard} />
+              <Route path="/profile" component={Profile} />
               <Route component={NotFound} />
             </Switch>
           </Layout>

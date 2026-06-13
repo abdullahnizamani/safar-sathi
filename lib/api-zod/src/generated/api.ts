@@ -86,8 +86,13 @@ export const ListRidesResponseItem = zod.object({
   "driver_id": zod.number(),
   "driver_name": zod.string(),
   "driver_university": zod.string().optional(),
+  "driver_avg_rating": zod.number().nullish(),
   "origin": zod.string(),
   "destination": zod.string(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number(),
   "fare": zod.number(),
@@ -113,6 +118,10 @@ export const createRideBodyFareMin = 0;
 export const CreateRideBody = zod.object({
   "origin": zod.string().min(1),
   "destination": zod.string().min(1),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number().min(1),
   "fare": zod.number().min(createRideBodyFareMin),
@@ -129,8 +138,13 @@ export const ListMyRidesResponseItem = zod.object({
   "driver_id": zod.number(),
   "driver_name": zod.string(),
   "driver_university": zod.string().optional(),
+  "driver_avg_rating": zod.number().nullish(),
   "origin": zod.string(),
   "destination": zod.string(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number(),
   "fare": zod.number(),
@@ -155,8 +169,13 @@ export const GetRideResponse = zod.object({
   "driver_id": zod.number(),
   "driver_name": zod.string(),
   "driver_university": zod.string().optional(),
+  "driver_avg_rating": zod.number().nullish(),
   "origin": zod.string(),
   "destination": zod.string(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number(),
   "fare": zod.number(),
@@ -178,6 +197,10 @@ export const UpdateRideParams = zod.object({
 export const UpdateRideBody = zod.object({
   "origin": zod.string().optional(),
   "destination": zod.string().optional(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string().optional(),
   "available_seats": zod.number().optional(),
   "fare": zod.number().optional(),
@@ -191,8 +214,13 @@ export const UpdateRideResponse = zod.object({
   "driver_id": zod.number(),
   "driver_name": zod.string(),
   "driver_university": zod.string().optional(),
+  "driver_avg_rating": zod.number().nullish(),
   "origin": zod.string(),
   "destination": zod.string(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number(),
   "fare": zod.number(),
@@ -232,8 +260,13 @@ export const ListRideRequestsResponseItem = zod.object({
   "driver_id": zod.number(),
   "driver_name": zod.string(),
   "driver_university": zod.string().optional(),
+  "driver_avg_rating": zod.number().nullish(),
   "origin": zod.string(),
   "destination": zod.string(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number(),
   "fare": zod.number(),
@@ -272,8 +305,13 @@ export const ListMyRequestsResponseItem = zod.object({
   "driver_id": zod.number(),
   "driver_name": zod.string(),
   "driver_university": zod.string().optional(),
+  "driver_avg_rating": zod.number().nullish(),
   "origin": zod.string(),
   "destination": zod.string(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number(),
   "fare": zod.number(),
@@ -312,8 +350,13 @@ export const UpdateRideRequestResponse = zod.object({
   "driver_id": zod.number(),
   "driver_name": zod.string(),
   "driver_university": zod.string().optional(),
+  "driver_avg_rating": zod.number().nullish(),
   "origin": zod.string(),
   "destination": zod.string(),
+  "origin_lat": zod.number().nullish(),
+  "origin_lng": zod.number().nullish(),
+  "dest_lat": zod.number().nullish(),
+  "dest_lng": zod.number().nullish(),
   "departure_time": zod.string(),
   "available_seats": zod.number(),
   "fare": zod.number(),
@@ -324,6 +367,49 @@ export const UpdateRideRequestResponse = zod.object({
   "created_at": zod.string()
 }).optional(),
   "created_at": zod.string()
+})
+
+
+/**
+ * @summary Submit a review for a driver
+ */
+export const createReviewBodyRatingMax = 5;
+
+
+
+export const CreateReviewBody = zod.object({
+  "driver_id": zod.number(),
+  "ride_id": zod.number(),
+  "rating": zod.number().min(1).max(createReviewBodyRatingMax),
+  "comment": zod.string().optional()
+})
+
+
+/**
+ * @summary Get a user's received reviews and average rating
+ */
+export const GetUserReviewsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const getUserReviewsResponseReviewsItemRatingMax = 5;
+
+
+
+export const GetUserReviewsResponse = zod.object({
+  "user_id": zod.number(),
+  "avg_rating": zod.number().nullable(),
+  "review_count": zod.number(),
+  "reviews": zod.array(zod.object({
+  "id": zod.number(),
+  "reviewer_id": zod.number(),
+  "reviewer_name": zod.string(),
+  "driver_id": zod.number(),
+  "ride_id": zod.number(),
+  "rating": zod.number().min(1).max(getUserReviewsResponseReviewsItemRatingMax),
+  "comment": zod.string().nullish(),
+  "created_at": zod.string()
+}))
 })
 
 

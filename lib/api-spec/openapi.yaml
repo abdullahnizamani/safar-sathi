@@ -16,6 +16,8 @@ tags:
     description: Ride operations
   - name: requests
     description: Ride request operations
+  - name: reviews
+    description: Review and rating operations
   - name: stats
     description: Statistics and summary operations
 
@@ -313,6 +315,46 @@ paths:
         "404":
           description: Not found
 
+  /reviews:
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Submit a review for a driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "400":
+          description: Bad request
+
+  /users/{id}/reviews:
+    get:
+      operationId: getUserReviews
+      tags: [reviews]
+      summary: Get a user's received reviews and average rating
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserReviews"
+
   /stats/summary:
     get:
       operationId: getStatsSummary
@@ -406,10 +448,20 @@ components:
           type: string
         driver_university:
           type: string
+        driver_avg_rating:
+          type: ["number", "null"]
         origin:
           type: string
         destination:
           type: string
+        origin_lat:
+          type: ["number", "null"]
+        origin_lng:
+          type: ["number", "null"]
+        dest_lat:
+          type: ["number", "null"]
+        dest_lng:
+          type: ["number", "null"]
         departure_time:
           type: string
         available_seats:
@@ -439,6 +491,14 @@ components:
         destination:
           type: string
           minLength: 1
+        origin_lat:
+          type: ["number", "null"]
+        origin_lng:
+          type: ["number", "null"]
+        dest_lat:
+          type: ["number", "null"]
+        dest_lng:
+          type: ["number", "null"]
         departure_time:
           type: string
         available_seats:
@@ -460,6 +520,14 @@ components:
           type: string
         destination:
           type: string
+        origin_lat:
+          type: ["number", "null"]
+        origin_lng:
+          type: ["number", "null"]
+        dest_lat:
+          type: ["number", "null"]
+        dest_lng:
+          type: ["number", "null"]
         departure_time:
           type: string
         available_seats:
@@ -513,6 +581,59 @@ components:
         status:
           type: string
           enum: [ACCEPTED, REJECTED]
+
+    Review:
+      type: object
+      required: [id, reviewer_id, reviewer_name, driver_id, ride_id, rating, created_at]
+      properties:
+        id:
+          type: integer
+        reviewer_id:
+          type: integer
+        reviewer_name:
+          type: string
+        driver_id:
+          type: integer
+        ride_id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    ReviewInput:
+      type: object
+      required: [driver_id, ride_id, rating]
+      properties:
+        driver_id:
+          type: integer
+        ride_id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+
+    UserReviews:
+      type: object
+      required: [user_id, avg_rating, review_count, reviews]
+      properties:
+        user_id:
+          type: integer
+        avg_rating:
+          type: ["number", "null"]
+        review_count:
+          type: integer
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
 
     StatsSummary:
       type: object

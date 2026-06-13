@@ -12,6 +12,14 @@ export interface RideInput {
   origin: string;
   /** @minLength 1 */
   destination: string;
+  /** @nullable */
+  origin_lat?: number | null;
+  /** @nullable */
+  origin_lng?: number | null;
+  /** @nullable */
+  dest_lat?: number | null;
+  /** @nullable */
+  dest_lng?: number | null;
   departure_time: string;
   /** @minimum 1 */
   available_seats: number;
