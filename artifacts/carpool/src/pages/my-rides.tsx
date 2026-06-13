@@ -1,0 +1,181 @@
+import { useListMyRides, useListRideRequests, useUpdateRideRequest, useUpdateRide, getListMyRidesQueryKey, getListRideRequestsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { formatDateTime, formatPKR } from "@/lib/format";
+import { getStatusColor } from "@/components/ride-card";
+import { Check, X, Users, MapPin, ArrowRight, User, Clock } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Link } from "wouter";
+
+function RideRequests({ rideId, availableSeats }: { rideId: number, availableSeats: number }) {
+  const { data: requests, isLoading } = useListRideRequests(rideId, { 
+    query: { enabled: !!rideId, queryKey: getListRideRequestsQueryKey(rideId) } 
+  });
+  const updateRequest = useUpdateRideRequest();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  if (isLoading) return <div className="p-4"><Skeleton className="h-20 w-full" /></div>;
+  if (!requests || requests.length === 0) return <div className="p-6 text-center text-muted-foreground text-sm">No requests for this ride yet.</div>;
+
+  const handleUpdateStatus = (requestId: number, status: "ACCEPTED" | "REJECTED") => {
+    updateRequest.mutate({ id: requestId, data: { status } }, {
+      onSuccess: () => {
+        toast({ title: `Request ${status.toLowerCase()}`, description: `Rider has been notified.` });
+        queryClient.invalidateQueries({ queryKey: getListRideRequestsQueryKey(rideId) });
+        queryClient.invalidateQueries({ queryKey: getListMyRidesQueryKey() });
+      },
+      onError: (err: any) => {
+        toast({ title: "Failed to update", description: err?.message || "An error occurred", variant: "destructive" });
+      }
+    });
+  };
+
+  return (
+    <div className="divide-y border-t bg-muted/20">
+      {requests.map(req => (
+        <div key={req.id} className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+              {req.rider_name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="font-semibold text-sm">{req.rider_name}</div>
+              <div className="text-xs text-muted-foreground flex gap-2 items-center">
+                <span>{req.rider_university || 'Unknown Uni'}</span>
+                {req.rider_gender && <span>• {req.rider_gender}</span>}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            {req.status === "PENDING" ? (
+              <>
+                <Button size="sm" variant="outline" className="h-8 text-destructive border-destructive/30 hover:bg-destructive/10" 
+                  onClick={() => handleUpdateStatus(req.id, "REJECTED")} disabled={updateRequest.isPending}>
+                  <X className="w-4 h-4 mr-1" /> Reject
+                </Button>
+                <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-white" 
+                  onClick={() => handleUpdateStatus(req.id, "ACCEPTED")} disabled={updateRequest.isPending || availableSeats <= 0}>
+                  <Check className="w-4 h-4 mr-1" /> Accept
+                </Button>
+              </>
+            ) : (
+              <Badge variant="outline" className={getStatusColor(req.status)}>{req.status}</Badge>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function MyRides() {
+  const { data: rides, isLoading } = useListMyRides({ query: { queryKey: getListMyRidesQueryKey() } });
+  const updateRide = useUpdateRide();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleCancelRide = (id: number) => {
+    if (confirm("Are you sure you want to cancel this ride? This action cannot be undone.")) {
+      updateRide.mutate({ id, data: { status: "CANCELLED" } }, {
+        onSuccess: () => {
+          toast({ title: "Ride Cancelled", description: "The ride has been marked as cancelled." });
+          queryClient.invalidateQueries({ queryKey: getListMyRidesQueryKey() });
+        }
+      });
+    }
+  };
+
+  const handleCompleteRide = (id: number) => {
+    updateRide.mutate({ id, data: { status: "COMPLETED" } }, {
+      onSuccess: () => {
+        toast({ title: "Ride Completed", description: "The ride has been marked as completed." });
+        queryClient.invalidateQueries({ queryKey: getListMyRidesQueryKey() });
+      }
+    });
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">My Posted Rides</h1>
+          <p className="text-muted-foreground mt-2">Manage rides you've offered and requests from passengers.</p>
+        </div>
+        <Button asChild className="hidden sm:flex"><Link href="/rides/new">Post New Ride</Link></Button>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-32 w-full rounded-2xl" />)}
+        </div>
+      ) : !rides || rides.length === 0 ? (
+        <div className="text-center py-20 bg-card border border-dashed rounded-2xl">
+          <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <User className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-bold mb-2">No rides posted yet</h3>
+          <p className="text-muted-foreground max-w-sm mx-auto mb-6">
+            You haven't offered any rides. Start carpooling and sharing costs today.
+          </p>
+          <Button asChild><Link href="/rides/new">Post a Ride</Link></Button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <Accordion type="multiple" className="space-y-4">
+            {rides.map(ride => (
+              <AccordionItem key={ride.id} value={`ride-${ride.id}`} className="bg-card border rounded-2xl overflow-hidden shadow-sm px-0">
+                <AccordionTrigger className="hover:no-underline px-6 py-4 data-[state=open]:border-b">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full text-left pr-4 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 font-bold text-lg">
+                        <span>{ride.origin}</span>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span>{ride.destination}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
+                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {formatDateTime(ride.departure_time)}</span>
+                        <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {ride.available_seats} seats</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {ride.request_count ? (
+                         <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">{ride.request_count} Requests</Badge>
+                      ) : null}
+                      <Badge variant="outline" className={`border-0 ${getStatusColor(ride.status)}`}>{ride.status}</Badge>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="p-0">
+                  <div className="p-6 bg-card border-b flex justify-between items-center gap-4 flex-wrap">
+                    <div className="text-sm font-medium">
+                      Fare: <span className="text-primary font-bold">{formatPKR(ride.fare)}</span>
+                    </div>
+                    
+                    {ride.status === "OPEN" || ride.status === "FULL" ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10"
+                           onClick={() => handleCancelRide(ride.id)} disabled={updateRide.isPending}>
+                           Cancel Ride
+                        </Button>
+                        <Button size="sm" variant="default" onClick={() => handleCompleteRide(ride.id)} disabled={updateRide.isPending}>
+                          Mark Completed
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                  
+                  <RideRequests rideId={ride.id} availableSeats={ride.available_seats} />
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      )}
+    </div>
+  );
+}
