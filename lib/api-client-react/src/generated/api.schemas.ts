@@ -197,6 +197,16 @@ export interface RideRequest {
   rider_university?: string;
   rider_gender?: string;
   status: RideRequestStatus;
+  /**
+     * Revealed to the rider only when request is ACCEPTED
+     * @nullable
+     */
+  driver_phone?: string | null;
+  /**
+     * Revealed to the driver only when request is ACCEPTED
+     * @nullable
+     */
+  rider_phone?: string | null;
   ride?: Ride;
   created_at: string;
 }

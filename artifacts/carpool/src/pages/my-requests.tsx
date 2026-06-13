@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatDateTime, formatPKR } from "@/lib/format";
 import { getStatusColor } from "@/components/ride-card";
-import { Clock, MapPin, ArrowRight, User, Map, Star } from "lucide-react";
+import { Clock, ArrowRight, User, Map, Star, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -73,10 +73,7 @@ export default function MyRequests() {
   const { toast } = useToast();
   const createReview = useCreateReview();
 
-  // Track which ride IDs have been reviewed in this session
   const [reviewedRideIds, setReviewedRideIds] = useState<Set<number>>(new Set());
-
-  // Review modal state
   const [target, setTarget] = useState<ReviewTarget | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -166,7 +163,7 @@ export default function MyRequests() {
               >
                 <div
                   className={`h-1.5 w-full ${
-                    req.status === "ACCEPTED"
+                    isAccepted
                       ? "bg-green-500"
                       : req.status === "REJECTED"
                       ? "bg-red-500"
@@ -183,7 +180,7 @@ export default function MyRequests() {
                           <span>{req.ride.destination}</span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-muted-foreground">
                           <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
                             <Clock className="w-4 h-4" />{" "}
                             {formatDateTime(req.ride.departure_time)}
@@ -195,6 +192,17 @@ export default function MyRequests() {
                             {formatPKR(req.ride.fare)}
                           </span>
                         </div>
+
+                        {/* Phone reveal — shown only when ACCEPTED */}
+                        {isAccepted && req.driver_phone && (
+                          <a
+                            href={`tel:${req.driver_phone}`}
+                            className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors w-fit"
+                          >
+                            <Phone className="w-4 h-4" />
+                            Call driver: {req.driver_phone}
+                          </a>
+                        )}
                       </div>
                     )}
 

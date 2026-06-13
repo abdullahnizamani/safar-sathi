@@ -280,6 +280,8 @@ export const ListRideRequestsResponseItem = zod.object({
   "rider_university": zod.string().optional(),
   "rider_gender": zod.string().optional(),
   "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED']),
+  "driver_phone": zod.string().nullish().describe('Revealed to the rider only when request is ACCEPTED'),
+  "rider_phone": zod.string().nullish().describe('Revealed to the driver only when request is ACCEPTED'),
   "ride": zod.object({
   "id": zod.number(),
   "driver_id": zod.number(),
@@ -325,6 +327,8 @@ export const ListMyRequestsResponseItem = zod.object({
   "rider_university": zod.string().optional(),
   "rider_gender": zod.string().optional(),
   "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED']),
+  "driver_phone": zod.string().nullish().describe('Revealed to the rider only when request is ACCEPTED'),
+  "rider_phone": zod.string().nullish().describe('Revealed to the driver only when request is ACCEPTED'),
   "ride": zod.object({
   "id": zod.number(),
   "driver_id": zod.number(),
@@ -370,6 +374,8 @@ export const UpdateRideRequestResponse = zod.object({
   "rider_university": zod.string().optional(),
   "rider_gender": zod.string().optional(),
   "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED']),
+  "driver_phone": zod.string().nullish().describe('Revealed to the rider only when request is ACCEPTED'),
+  "rider_phone": zod.string().nullish().describe('Revealed to the driver only when request is ACCEPTED'),
   "ride": zod.object({
   "id": zod.number(),
   "driver_id": zod.number(),

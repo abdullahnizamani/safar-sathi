@@ -331,6 +331,8 @@ router.get("/rides/:id/requests", async (req, res): Promise<void> => {
 
   const result = await Promise.all(requests.map(async (r) => {
     const [rider] = await db.select().from(usersTable).where(eq(usersTable.id, r.riderId));
+    // Rider phone revealed to the driver only when ACCEPTED
+    const riderPhone = r.status === "ACCEPTED" ? (rider?.phoneNumber ?? null) : null;
     return {
       id: r.id,
       ride_id: r.rideId,
@@ -339,6 +341,8 @@ router.get("/rides/:id/requests", async (req, res): Promise<void> => {
       rider_university: rider?.university ?? "",
       rider_gender: rider?.gender ?? "",
       status: r.status,
+      driver_phone: null,   // driver viewing own requests — they know their own number
+      rider_phone: riderPhone,
       ride: rideFormatted,
       created_at: r.createdAt.toISOString(),
     };

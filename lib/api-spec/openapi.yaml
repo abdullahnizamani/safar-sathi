@@ -611,6 +611,12 @@ components:
         status:
           type: string
           enum: [PENDING, ACCEPTED, REJECTED]
+        driver_phone:
+          type: ["string", "null"]
+          description: Revealed to the rider only when request is ACCEPTED
+        rider_phone:
+          type: ["string", "null"]
+          description: Revealed to the driver only when request is ACCEPTED
         ride:
           $ref: "#/components/schemas/Ride"
         created_at:

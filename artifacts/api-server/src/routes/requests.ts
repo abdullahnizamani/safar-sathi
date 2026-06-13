@@ -10,13 +10,24 @@ import { getUserFromRequest } from "./auth";
 
 const router: IRouter = Router();
 
-async function formatRequest(r: typeof rideRequestsTable.$inferSelect) {
+/**
+ * Format a ride request with conditional phone reveal.
+ * - driver_phone: shown to the rider only when status === ACCEPTED
+ * - rider_phone: shown to the driver only when status === ACCEPTED
+ */
+async function formatRequest(
+  r: typeof rideRequestsTable.$inferSelect,
+  viewerUserId: number
+) {
   const [rider] = await db.select().from(usersTable).where(eq(usersTable.id, r.riderId));
   const [ride] = await db.select().from(ridesTable).where(eq(ridesTable.id, r.rideId));
 
   let rideFormatted = null;
+  let driverPhone: string | null = null;
+
   if (ride) {
     const [driver] = await db.select().from(usersTable).where(eq(usersTable.id, ride.driverId));
+
     rideFormatted = {
       id: ride.id,
       driver_id: ride.driverId,
@@ -33,7 +44,18 @@ async function formatRequest(r: typeof rideRequestsTable.$inferSelect) {
       request_count: 0,
       created_at: ride.createdAt.toISOString(),
     };
+
+    // Reveal driver phone to the rider when accepted
+    if (r.status === "ACCEPTED" && viewerUserId === r.riderId) {
+      driverPhone = driver?.phoneNumber ?? null;
+    }
   }
+
+  // Reveal rider phone to the driver when accepted
+  const riderPhone =
+    r.status === "ACCEPTED" && ride && viewerUserId === ride.driverId
+      ? (rider?.phoneNumber ?? null)
+      : null;
 
   return {
     id: r.id,
@@ -43,6 +65,8 @@ async function formatRequest(r: typeof rideRequestsTable.$inferSelect) {
     rider_university: rider?.university ?? "",
     rider_gender: rider?.gender ?? "",
     status: r.status,
+    driver_phone: driverPhone,
+    rider_phone: riderPhone,
     ride: rideFormatted,
     created_at: r.createdAt.toISOString(),
   };
@@ -95,7 +119,7 @@ router.post("/requests", async (req, res): Promise<void> => {
   }).returning();
 
   req.log.info({ requestId: rideRequest.id, userId: user.id, rideId: ride_id }, "Ride request created");
-  res.status(201).json(await formatRequest(rideRequest));
+  res.status(201).json(await formatRequest(rideRequest, user.id));
 });
 
 router.get("/requests/my", async (req, res): Promise<void> => {
@@ -109,7 +133,7 @@ router.get("/requests/my", async (req, res): Promise<void> => {
     .where(eq(rideRequestsTable.riderId, user.id))
     .orderBy(rideRequestsTable.createdAt);
 
-  const formatted = await Promise.all(requests.map(r => formatRequest(r)));
+  const formatted = await Promise.all(requests.map(r => formatRequest(r, user.id)));
   res.json(formatted);
 });
 
@@ -152,7 +176,7 @@ router.patch("/requests/:id", async (req, res): Promise<void> => {
     .where(eq(rideRequestsTable.id, params.data.id))
     .returning();
 
-  // Critical logic: when ACCEPTED, decrement available_seats
+  // When ACCEPTED, decrement available_seats
   if (status === "ACCEPTED" && rideRequest.status !== "ACCEPTED") {
     const newSeats = Math.max(0, ride.availableSeats - 1);
     const newRideStatus = newSeats === 0 ? "FULL" : ride.status;
@@ -163,7 +187,8 @@ router.patch("/requests/:id", async (req, res): Promise<void> => {
     req.log.info({ rideId: ride.id, newSeats, rideStatus: newRideStatus }, "Ride seat decremented after accept");
   }
 
-  res.json(await formatRequest(updated));
+  // Viewer here is the driver
+  res.json(await formatRequest(updated, user.id));
 });
 
 export { router as requestsRouter };
