@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, avg, count } from "drizzle-orm";
+import { eq, avg, count, and } from "drizzle-orm";
 import { db, reviewsTable, usersTable } from "@workspace/db";
 import { CreateReviewBody, GetUserReviewsParams } from "@workspace/api-zod";
 import { getUserFromRequest } from "./auth";
@@ -28,6 +28,17 @@ router.post("/reviews", async (req, res): Promise<void> => {
 
   if (rating < 1 || rating > 5) {
     res.status(400).json({ error: "Rating must be between 1 and 5" });
+    return;
+  }
+
+  // Check if reviewer has already reviewed this ride
+  const [existingReview] = await db.select().from(reviewsTable)
+    .where(and(
+      eq(reviewsTable.reviewerId, user.id),
+      eq(reviewsTable.rideId, ride_id)
+    ));
+  if (existingReview) {
+    res.status(400).json({ error: "You have already reviewed this ride" });
     return;
   }
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, rideRequestsTable, ridesTable, usersTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
+import { db, rideRequestsTable, ridesTable, usersTable, reviewsTable } from "@workspace/db";
 import {
   CreateRideRequestBody,
   UpdateRideRequestBody,
@@ -43,6 +43,7 @@ async function formatRequest(
       status: ride.status,
       request_count: 0,
       created_at: ride.createdAt.toISOString(),
+      updated_at: ride.updatedAt.toISOString(),
     };
 
     // Reveal driver phone to the rider when accepted
@@ -57,6 +58,12 @@ async function formatRequest(
       ? (rider?.phoneNumber ?? null)
       : null;
 
+  const [existingReview] = await db.select().from(reviewsTable)
+    .where(and(
+      eq(reviewsTable.reviewerId, r.riderId),
+      eq(reviewsTable.rideId, r.rideId)
+    ));
+
   return {
     id: r.id,
     ride_id: r.rideId,
@@ -64,11 +71,14 @@ async function formatRequest(
     rider_name: rider?.username ?? "Unknown",
     rider_university: rider?.university ?? "",
     rider_gender: rider?.gender ?? "",
+    requested_seats: r.requestedSeats,
     status: r.status,
     driver_phone: driverPhone,
     rider_phone: riderPhone,
     ride: rideFormatted,
+    reviewed: !!existingReview,
     created_at: r.createdAt.toISOString(),
+    updated_at: r.updatedAt.toISOString(),
   };
 }
 
@@ -85,7 +95,8 @@ router.post("/requests", async (req, res): Promise<void> => {
     return;
   }
 
-  const { ride_id } = parsed.data;
+  const { ride_id, requested_seats } = parsed.data;
+  const seats = requested_seats ?? 1;
 
   const [ride] = await db.select().from(ridesTable).where(eq(ridesTable.id, ride_id));
   if (!ride) {
@@ -103,6 +114,11 @@ router.post("/requests", async (req, res): Promise<void> => {
     return;
   }
 
+  if (ride.availableSeats < seats) {
+    res.status(400).json({ error: `Not enough available seats (only ${ride.availableSeats} left)` });
+    return;
+  }
+
   const [existingRequest] = await db.select().from(rideRequestsTable).where(
     and(eq(rideRequestsTable.rideId, ride_id), eq(rideRequestsTable.riderId, user.id))
   );
@@ -115,6 +131,7 @@ router.post("/requests", async (req, res): Promise<void> => {
   const [rideRequest] = await db.insert(rideRequestsTable).values({
     rideId: ride_id,
     riderId: user.id,
+    requestedSeats: seats,
     status: "PENDING",
   }).returning();
 
@@ -131,7 +148,7 @@ router.get("/requests/my", async (req, res): Promise<void> => {
 
   const requests = await db.select().from(rideRequestsTable)
     .where(eq(rideRequestsTable.riderId, user.id))
-    .orderBy(rideRequestsTable.createdAt);
+    .orderBy(desc(rideRequestsTable.updatedAt));
 
   const formatted = await Promise.all(requests.map(r => formatRequest(r, user.id)));
   res.json(formatted);
@@ -162,32 +179,76 @@ router.patch("/requests/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Only the driver of the associated ride can update request status
+  // Validate updating permissions
   const [ride] = await db.select().from(ridesTable).where(eq(ridesTable.id, rideRequest.rideId));
-  if (!ride || ride.driverId !== user.id) {
+  if (!ride) {
+    res.status(404).json({ error: "Ride not found" });
+    return;
+  }
+
+  const isDriver = ride.driverId === user.id;
+  const isRider = rideRequest.riderId === user.id;
+
+  if (!isDriver && !isRider) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
   const { status } = parsed.data;
 
+  // Block any status changes once the ride is completed or cancelled
+  if (ride.status === "COMPLETED" || ride.status === "CANCELLED") {
+    res.status(400).json({ error: "Cannot update a request for a completed or cancelled ride" });
+    return;
+  }
+
+  // Validate transitions
+  if (isRider) {
+    if (status !== "CANCELLED") {
+      res.status(400).json({ error: "Passengers can only cancel their requests" });
+      return;
+    }
+  } else if (isDriver) {
+    if (status !== "ACCEPTED" && status !== "REJECTED") {
+      res.status(400).json({ error: "Drivers can only accept or reject requests" });
+      return;
+    }
+  }
+
+  if (status === "ACCEPTED" && rideRequest.status !== "ACCEPTED") {
+    if (ride.availableSeats < rideRequest.requestedSeats) {
+      res.status(400).json({ error: `Not enough available seats to accept request (needs ${rideRequest.requestedSeats}, only ${ride.availableSeats} available)` });
+      return;
+    }
+  }
+
   const [updated] = await db.update(rideRequestsTable)
-    .set({ status })
+    .set({ status, updatedAt: new Date() })
     .where(eq(rideRequestsTable.id, params.data.id))
     .returning();
 
   // When ACCEPTED, decrement available_seats
   if (status === "ACCEPTED" && rideRequest.status !== "ACCEPTED") {
-    const newSeats = Math.max(0, ride.availableSeats - 1);
-    const newRideStatus = newSeats === 0 ? "FULL" : ride.status;
+    const newSeats = Math.max(0, ride.availableSeats - rideRequest.requestedSeats);
+    const newRideStatus = newSeats === 0 ? "FULL" : "OPEN";
     await db.update(ridesTable)
-      .set({ availableSeats: newSeats, status: newRideStatus })
+      .set({ availableSeats: newSeats, status: newRideStatus, updatedAt: new Date() })
       .where(eq(ridesTable.id, ride.id));
 
-    req.log.info({ rideId: ride.id, newSeats, rideStatus: newRideStatus }, "Ride seat decremented after accept");
+    req.log.info({ rideId: ride.id, newSeats, rideStatus: newRideStatus }, "Ride seats decremented after accept");
   }
 
-  // Viewer here is the driver
+  // When cancelled/rejected from accepted, restore seats
+  if (rideRequest.status === "ACCEPTED" && status !== "ACCEPTED") {
+    const newSeats = ride.availableSeats + rideRequest.requestedSeats;
+    const newRideStatus = "OPEN";
+    await db.update(ridesTable)
+      .set({ availableSeats: newSeats, status: newRideStatus, updatedAt: new Date() })
+      .where(eq(ridesTable.id, ride.id));
+
+    req.log.info({ rideId: ride.id, newSeats, rideStatus: newRideStatus }, "Ride seats restored after cancellation/kick out");
+  }
+
   res.json(await formatRequest(updated, user.id));
 });
 

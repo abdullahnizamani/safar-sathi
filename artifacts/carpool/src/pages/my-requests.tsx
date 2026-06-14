@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   useListMyRequests,
   useCreateReview,
+  useUpdateRideRequest,
   getListMyRequestsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,11 +20,12 @@ import {
 } from "@/components/ui/dialog";
 import { formatDateTime, formatPKR } from "@/lib/format";
 import { getStatusColor } from "@/components/ride-card";
-import { Clock, ArrowRight, User, Map, Star, Phone } from "lucide-react";
+import { Clock, ArrowRight, User, Map, Star, Phone, Users, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 function InteractiveStars({
   value,
@@ -72,11 +74,33 @@ export default function MyRequests() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const createReview = useCreateReview();
+  const updateRequest = useUpdateRideRequest();
 
   const [reviewedRideIds, setReviewedRideIds] = useState<Set<number>>(new Set());
   const [target, setTarget] = useState<ReviewTarget | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+
+  const handleCancelRequest = (requestId: number) => {
+    if (confirm("Are you sure you want to cancel this request?")) {
+      updateRequest.mutate(
+        { id: requestId, data: { status: "CANCELLED" } },
+        {
+          onSuccess: () => {
+            toast({ title: "Request Cancelled", description: "Your ride request has been cancelled." });
+            queryClient.invalidateQueries({ queryKey: getListMyRequestsQueryKey() });
+          },
+          onError: (err: any) => {
+            toast({
+              title: "Cancellation Failed",
+              description: err?.message || "Could not cancel request.",
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    }
+  };
 
   const openReview = (t: ReviewTarget) => {
     setTarget(t);
@@ -122,6 +146,9 @@ export default function MyRequests() {
     );
   };
 
+  const activeRequests = requests?.filter((r) => r.status === "PENDING" || r.status === "ACCEPTED") ?? [];
+  const pastRequests = requests?.filter((r) => r.status === "CANCELLED" || r.status === "REJECTED") ?? [];
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
@@ -151,109 +178,199 @@ export default function MyRequests() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4">
-          {requests.map((req) => {
-            const isAccepted = req.status === "ACCEPTED";
-            const alreadyReviewed = reviewedRideIds.has(req.ride_id);
+        <Tabs defaultValue="active" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-muted/60 p-1 rounded-xl">
+            <TabsTrigger value="active" className="font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Active Bookings ({activeRequests.length})
+            </TabsTrigger>
+            <TabsTrigger value="past" className="font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Past Bookings ({pastRequests.length})
+            </TabsTrigger>
+          </TabsList>
 
-            return (
-              <Card
-                key={req.id}
-                className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div
-                  className={`h-1.5 w-full ${
-                    isAccepted
-                      ? "bg-green-500"
-                      : req.status === "REJECTED"
-                      ? "bg-red-500"
-                      : "bg-blue-400"
-                  }`}
-                />
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row justify-between gap-6">
-                    {req.ride && (
-                      <div className="flex-1 space-y-4">
-                        <div className="flex items-center gap-2 font-bold text-lg flex-wrap">
-                          <span>{req.ride.origin}</span>
-                          <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                          <span>{req.ride.destination}</span>
-                        </div>
+          <TabsContent value="active" className="space-y-4 outline-none">
+            {activeRequests.length === 0 ? (
+              <div className="text-center py-12 bg-card border border-dashed rounded-2xl text-muted-foreground text-sm font-medium animate-in fade-in duration-300">
+                No active bookings or pending requests.
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {activeRequests.map((req) => {
+                  const isAccepted = req.status === "ACCEPTED";
+                  const alreadyReviewed = reviewedRideIds.has(req.ride_id);
 
-                        <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-muted-foreground">
-                          <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
-                            <Clock className="w-4 h-4" />{" "}
-                            {formatDateTime(req.ride.departure_time)}
-                          </span>
-                          <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
-                            <User className="w-4 h-4" /> {req.ride.driver_name}
-                          </span>
-                          <span className="font-bold text-primary px-2.5 py-1">
-                            {formatPKR(req.ride.fare)}
-                          </span>
-                        </div>
+                  return (
+                    <Card
+                      key={req.id}
+                      className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className={`h-1.5 w-full bg-blue-400 ${isAccepted ? "bg-green-500" : ""}`} />
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row justify-between gap-6">
+                          {req.ride && (
+                            <div className="flex-1 space-y-4">
+                              <div className="flex items-center gap-2 font-bold text-lg flex-wrap">
+                                <span>{req.ride.origin}</span>
+                                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                                <span>{req.ride.destination}</span>
+                              </div>
 
-                        {/* Phone reveal — shown only when ACCEPTED */}
-                        {isAccepted && req.driver_phone && (
-                          <a
-                            href={`tel:${req.driver_phone}`}
-                            className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors w-fit"
-                          >
-                            <Phone className="w-4 h-4" />
-                            Call driver: {req.driver_phone}
-                          </a>
-                        )}
-                      </div>
-                    )}
+                              <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-muted-foreground">
+                                <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
+                                  <Clock className="w-4 h-4" />{" "}
+                                  {formatDateTime(req.ride.departure_time)}
+                                </span>
+                                <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
+                                  <User className="w-4 h-4" /> {req.ride.driver_name}
+                                </span>
+                                <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
+                                  <Users className="w-4 h-4" /> {req.requested_seats} seat{req.requested_seats !== 1 ? "s" : ""}
+                                </span>
+                                <span className="font-bold text-primary px-2.5 py-1">
+                                  {formatPKR(req.ride.fare)}
+                                </span>
+                              </div>
 
-                    <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-4 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 min-w-[120px]">
-                      <div>
-                        <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-center md:text-right mb-1">
-                          Status
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={`text-sm px-3 py-1 font-bold border-0 shadow-none ${getStatusColor(req.status)}`}
-                        >
-                          {req.status}
-                        </Badge>
-                      </div>
-
-                      {isAccepted && req.ride && (
-                        <Button
-                          size="sm"
-                          variant={alreadyReviewed ? "outline" : "default"}
-                          disabled={alreadyReviewed}
-                          onClick={() =>
-                            openReview({
-                              rideId: req.ride_id,
-                              driverId: req.ride!.driver_id,
-                              driverName: req.ride!.driver_name,
-                              rideLabel: `${req.ride!.origin} → ${req.ride!.destination}`,
-                            })
-                          }
-                          className="shrink-0"
-                        >
-                          {alreadyReviewed ? (
-                            <>
-                              <Star className="w-3.5 h-3.5 mr-1 fill-amber-400 text-amber-400" />
-                              Reviewed
-                            </>
-                          ) : (
-                            <>
-                              <Star className="w-3.5 h-3.5 mr-1" />
-                              Review Driver
-                            </>
+                              {isAccepted && req.driver_phone && (
+                                <a
+                                  href={`tel:${req.driver_phone}`}
+                                  className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors w-fit"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                  Call driver: {req.driver_phone}
+                                </a>
+                              )}
+                            </div>
                           )}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+
+                          <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-4 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 min-w-[120px]">
+                            <div className="text-center md:text-right">
+                              <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                                Status
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`text-sm px-3 py-1 font-bold border-0 shadow-none ${getStatusColor(req.status)}`}
+                              >
+                                {req.status}
+                              </Badge>
+                            </div>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive w-full md:w-auto"
+                              onClick={() => handleCancelRequest(req.id)}
+                              disabled={updateRequest.isPending || req.ride?.status === "COMPLETED" || req.ride?.status === "CANCELLED"}
+                            >
+                              <X className="w-3.5 h-3.5 mr-1" /> Cancel
+                            </Button>
+
+                            {isAccepted && req.ride && (
+                              <Button
+                                size="sm"
+                                variant={alreadyReviewed ? "outline" : "default"}
+                                disabled={alreadyReviewed}
+                                onClick={() =>
+                                  openReview({
+                                    rideId: req.ride_id,
+                                    driverId: req.ride!.driver_id,
+                                    driverName: req.ride!.driver_name,
+                                    rideLabel: `${req.ride!.origin} → ${req.ride!.destination}`,
+                                  })
+                                }
+                                className="shrink-0"
+                              >
+                                {alreadyReviewed ? (
+                                  <>
+                                    <Star className="w-3.5 h-3.5 mr-1 fill-amber-400 text-amber-400" />
+                                    Reviewed
+                                  </>
+                                ) : (
+                                  <>
+                                    <Star className="w-3.5 h-3.5 mr-1" />
+                                    Review Driver
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="past" className="space-y-4 outline-none">
+            {pastRequests.length === 0 ? (
+              <div className="text-center py-12 bg-card border border-dashed rounded-2xl text-muted-foreground text-sm font-medium animate-in fade-in duration-300">
+                No past or cancelled bookings.
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {pastRequests.map((req) => {
+                  const isAccepted = req.status === "ACCEPTED";
+                  const alreadyReviewed = reviewedRideIds.has(req.ride_id);
+
+                  return (
+                    <Card
+                      key={req.id}
+                      className="overflow-hidden border shadow-sm opacity-80"
+                    >
+                      <div className={`h-1.5 w-full ${req.status === "REJECTED" ? "bg-red-500" : "bg-muted"}`} />
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row justify-between gap-6">
+                          {req.ride && (
+                            <div className="flex-1 space-y-4">
+                              <div className="flex items-center gap-2 font-bold text-lg flex-wrap">
+                                <span>{req.ride.origin}</span>
+                                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                                <span>{req.ride.destination}</span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-muted-foreground">
+                                <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
+                                  <Clock className="w-4 h-4" />{" "}
+                                  {formatDateTime(req.ride.departure_time)}
+                                </span>
+                                <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
+                                  <User className="w-4 h-4" /> {req.ride.driver_name}
+                                </span>
+                                <span className="flex items-center gap-1.5 bg-muted px-2.5 py-1 rounded-md">
+                                  <Users className="w-4 h-4" /> {req.requested_seats} seat{req.requested_seats !== 1 ? "s" : ""}
+                                </span>
+                                <span className="font-bold text-primary px-2.5 py-1">
+                                  {formatPKR(req.ride.fare)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-4 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 min-w-[120px]">
+                            <div className="text-center md:text-right">
+                              <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                                Status
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`text-sm px-3 py-1 font-bold border-0 shadow-none ${getStatusColor(req.status)}`}
+                              >
+                                {req.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Review modal */}

@@ -136,6 +136,7 @@ export const ListRidesResponseItem = zod.object({
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']),
   "status": zod.enum(['OPEN', 'FULL', 'COMPLETED', 'CANCELLED']),
   "request_count": zod.number().optional(),
+  "notes": zod.string().nullish(),
   "created_at": zod.string()
 })
 export const ListRidesResponse = zod.array(ListRidesResponseItem)
@@ -162,7 +163,8 @@ export const CreateRideBody = zod.object({
   "available_seats": zod.number().min(1),
   "fare": zod.number().min(createRideBodyFareMin),
   "transport_type": zod.string().optional(),
-  "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']).optional()
+  "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']).optional(),
+  "notes": zod.string().optional()
 })
 
 
@@ -188,6 +190,7 @@ export const ListMyRidesResponseItem = zod.object({
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']),
   "status": zod.enum(['OPEN', 'FULL', 'COMPLETED', 'CANCELLED']),
   "request_count": zod.number().optional(),
+  "notes": zod.string().nullish(),
   "created_at": zod.string()
 })
 export const ListMyRidesResponse = zod.array(ListMyRidesResponseItem)
@@ -219,6 +222,7 @@ export const GetRideResponse = zod.object({
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']),
   "status": zod.enum(['OPEN', 'FULL', 'COMPLETED', 'CANCELLED']),
   "request_count": zod.number().optional(),
+  "notes": zod.string().nullish(),
   "created_at": zod.string()
 })
 
@@ -264,6 +268,7 @@ export const UpdateRideResponse = zod.object({
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']),
   "status": zod.enum(['OPEN', 'FULL', 'COMPLETED', 'CANCELLED']),
   "request_count": zod.number().optional(),
+  "notes": zod.string().nullish(),
   "created_at": zod.string()
 })
 
@@ -290,7 +295,8 @@ export const ListRideRequestsResponseItem = zod.object({
   "rider_name": zod.string(),
   "rider_university": zod.string().optional(),
   "rider_gender": zod.string().optional(),
-  "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED']),
+  "requested_seats": zod.number(),
+  "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED']),
   "driver_phone": zod.string().nullish().describe('Revealed to the rider only when request is ACCEPTED'),
   "rider_phone": zod.string().nullish().describe('Revealed to the driver only when request is ACCEPTED'),
   "ride": zod.object({
@@ -312,6 +318,7 @@ export const ListRideRequestsResponseItem = zod.object({
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']),
   "status": zod.enum(['OPEN', 'FULL', 'COMPLETED', 'CANCELLED']),
   "request_count": zod.number().optional(),
+  "notes": zod.string().nullish(),
   "created_at": zod.string()
 }).optional(),
   "created_at": zod.string()
@@ -322,8 +329,11 @@ export const ListRideRequestsResponse = zod.array(ListRideRequestsResponseItem)
 /**
  * @summary Request a seat on a ride
  */
+export const createRideRequestBodyRequestedSeatsDefault = 1;
+
 export const CreateRideRequestBody = zod.object({
-  "ride_id": zod.number()
+  "ride_id": zod.number(),
+  "requested_seats": zod.number().default(createRideRequestBodyRequestedSeatsDefault)
 })
 
 
@@ -337,7 +347,8 @@ export const ListMyRequestsResponseItem = zod.object({
   "rider_name": zod.string(),
   "rider_university": zod.string().optional(),
   "rider_gender": zod.string().optional(),
-  "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED']),
+  "requested_seats": zod.number(),
+  "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED']),
   "driver_phone": zod.string().nullish().describe('Revealed to the rider only when request is ACCEPTED'),
   "rider_phone": zod.string().nullish().describe('Revealed to the driver only when request is ACCEPTED'),
   "ride": zod.object({
@@ -359,6 +370,7 @@ export const ListMyRequestsResponseItem = zod.object({
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']),
   "status": zod.enum(['OPEN', 'FULL', 'COMPLETED', 'CANCELLED']),
   "request_count": zod.number().optional(),
+  "notes": zod.string().nullish(),
   "created_at": zod.string()
 }).optional(),
   "created_at": zod.string()
@@ -374,7 +386,7 @@ export const UpdateRideRequestParams = zod.object({
 })
 
 export const UpdateRideRequestBody = zod.object({
-  "status": zod.enum(['ACCEPTED', 'REJECTED'])
+  "status": zod.enum(['ACCEPTED', 'REJECTED', 'CANCELLED'])
 })
 
 export const UpdateRideRequestResponse = zod.object({
@@ -384,7 +396,8 @@ export const UpdateRideRequestResponse = zod.object({
   "rider_name": zod.string(),
   "rider_university": zod.string().optional(),
   "rider_gender": zod.string().optional(),
-  "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED']),
+  "requested_seats": zod.number(),
+  "status": zod.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED']),
   "driver_phone": zod.string().nullish().describe('Revealed to the rider only when request is ACCEPTED'),
   "rider_phone": zod.string().nullish().describe('Revealed to the driver only when request is ACCEPTED'),
   "ride": zod.object({
@@ -406,6 +419,7 @@ export const UpdateRideRequestResponse = zod.object({
   "gender_preference": zod.enum(['ANY', 'MALE', 'FEMALE']),
   "status": zod.enum(['OPEN', 'FULL', 'COMPLETED', 'CANCELLED']),
   "request_count": zod.number().optional(),
+  "notes": zod.string().nullish(),
   "created_at": zod.string()
 }).optional(),
   "created_at": zod.string()

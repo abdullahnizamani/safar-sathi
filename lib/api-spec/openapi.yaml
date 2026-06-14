@@ -549,6 +549,8 @@ components:
           enum: [OPEN, FULL, COMPLETED, CANCELLED]
         request_count:
           type: integer
+        notes:
+          type: ["string", "null"]
         created_at:
           type: string
 
@@ -583,6 +585,8 @@ components:
         gender_preference:
           type: string
           enum: [ANY, MALE, FEMALE]
+        notes:
+          type: string
 
     RideUpdate:
       type: object
@@ -616,7 +620,7 @@ components:
 
     RideRequest:
       type: object
-      required: [id, ride_id, rider_id, rider_name, status, created_at]
+      required: [id, ride_id, rider_id, rider_name, requested_seats, status, created_at]
       properties:
         id:
           type: integer
@@ -630,9 +634,11 @@ components:
           type: string
         rider_gender:
           type: string
+        requested_seats:
+          type: integer
         status:
           type: string
-          enum: [PENDING, ACCEPTED, REJECTED]
+          enum: [PENDING, ACCEPTED, REJECTED, CANCELLED]
         driver_phone:
           type: ["string", "null"]
           description: Revealed to the rider only when request is ACCEPTED
@@ -650,6 +656,9 @@ components:
       properties:
         ride_id:
           type: integer
+        requested_seats:
+          type: integer
+          default: 1
 
     RideRequestUpdate:
       type: object
@@ -657,7 +666,7 @@ components:
       properties:
         status:
           type: string
-          enum: [ACCEPTED, REJECTED]
+          enum: [ACCEPTED, REJECTED, CANCELLED]
 
     Review:
       type: object

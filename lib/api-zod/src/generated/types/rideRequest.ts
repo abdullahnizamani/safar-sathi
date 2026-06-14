@@ -15,6 +15,7 @@ export interface RideRequest {
   rider_name: string;
   rider_university?: string;
   rider_gender?: string;
+  requested_seats: number;
   status: RideRequestStatus;
   /**
      * Revealed to the rider only when request is ACCEPTED

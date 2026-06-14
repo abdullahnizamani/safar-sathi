@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lt, count, avg } from "drizzle-orm";
+import { eq, and, gte, lt, count, avg, desc } from "drizzle-orm";
 import { db, ridesTable, usersTable, rideRequestsTable, reviewsTable } from "@workspace/db";
 import {
   CreateRideBody,
@@ -34,7 +34,7 @@ async function getDriverAvgRating(driverId: number): Promise<number | null> {
   return result?.avg ? parseFloat(result.avg) : null;
 }
 
-async function formatRide(ride: typeof ridesTable.$inferSelect, requestCount?: number) {
+async function formatRide(ride: typeof ridesTable.$inferSelect, requestCount?: number, requesterId?: number) {
   const [driver] = await db.select().from(usersTable).where(eq(usersTable.id, ride.driverId));
   let reqCount = requestCount;
   if (reqCount === undefined) {
@@ -43,12 +43,34 @@ async function formatRide(ride: typeof ridesTable.$inferSelect, requestCount?: n
   }
   const avgRating = await getDriverAvgRating(ride.driverId);
 
+  let driverPhone: string | null = null;
+  if (requesterId) {
+    if (ride.driverId === requesterId) {
+      driverPhone = driver?.phoneNumber ?? null;
+    } else {
+      const [acceptedRequest] = await db
+        .select()
+        .from(rideRequestsTable)
+        .where(
+          and(
+            eq(rideRequestsTable.rideId, ride.id),
+            eq(rideRequestsTable.riderId, requesterId),
+            eq(rideRequestsTable.status, "ACCEPTED")
+          )
+        );
+      if (acceptedRequest) {
+        driverPhone = driver?.phoneNumber ?? null;
+      }
+    }
+  }
+
   return {
     id: ride.id,
     driver_id: ride.driverId,
     driver_name: driver?.username ?? "Unknown",
     driver_university: driver?.university ?? "",
     driver_avg_rating: avgRating,
+    driver_phone: driverPhone,
     origin: ride.origin,
     destination: ride.destination,
     origin_lat: ride.originLat !== null && ride.originLat !== undefined ? parseFloat(ride.originLat) : null,
@@ -62,7 +84,9 @@ async function formatRide(ride: typeof ridesTable.$inferSelect, requestCount?: n
     gender_preference: ride.genderPreference,
     status: ride.status,
     request_count: reqCount,
+    notes: ride.notes ?? null,
     created_at: ride.createdAt.toISOString(),
+    updated_at: ride.updatedAt.toISOString(),
   };
 }
 
@@ -150,7 +174,80 @@ router.get("/rides", async (req, res): Promise<void> => {
     }
   }
 
-  const formatted = await Promise.all(filtered.map(r => formatRide(r)));
+  const isSearch = !!(req.query.origin || req.query.destination || req.query.origin_lat || req.query.dest_lat);
+
+  // Device Geolocation vicinity filtering & sorting (within 100km of user_lat/user_lng if provided)
+  const userLat = req.query.user_lat ? parseFloat(req.query.user_lat as string) : null;
+  const userLng = req.query.user_lng ? parseFloat(req.query.user_lng as string) : null;
+  if (userLat !== null && !isNaN(userLat) && userLng !== null && !isNaN(userLng)) {
+    // 1. Strict mathematical filter: discard if origin exceeds 100km from user (ONLY when not searching)
+    if (!isSearch) {
+      // Count how many rides are within 15km (close proximity)
+      const veryCloseRides = filtered.filter((r) => {
+        const rOriginLat = r.originLat != null ? parseFloat(r.originLat) : null;
+        const rOriginLng = r.originLng != null ? parseFloat(r.originLng) : null;
+        if (rOriginLat != null && rOriginLng != null) {
+          return haversineKm(userLat, userLng, rOriginLat, rOriginLng) <= 15;
+        }
+        return false;
+      });
+
+      // Count how many rides are within 100km (vicinity proximity)
+      const vicinityRides = filtered.filter((r) => {
+        const rOriginLat = r.originLat != null ? parseFloat(r.originLat) : null;
+        const rOriginLng = r.originLng != null ? parseFloat(r.originLng) : null;
+        if (rOriginLat != null && rOriginLng != null) {
+          return haversineKm(userLat, userLng, rOriginLat, rOriginLng) <= 100;
+        }
+        return false;
+      });
+
+      // Reinforce the 100km vicinity barrier only if:
+      // - there are plenty of rides close to us (e.g. >= 5 rides within 15km)
+      // - OR if there are already at least 20 rides near our location (within 100km)
+      // Otherwise, ignore the barrier to show rides further away.
+      const shouldEnforceBarrier = veryCloseRides.length >= 5 || vicinityRides.length >= 20;
+
+      if (shouldEnforceBarrier) {
+        filtered = filtered.filter((r) => {
+          const rOriginLat = r.originLat != null ? parseFloat(r.originLat) : null;
+          const rOriginLng = r.originLng != null ? parseFloat(r.originLng) : null;
+          if (rOriginLat != null && rOriginLng != null) {
+            return haversineKm(userLat, userLng, rOriginLat, rOriginLng) <= 100;
+          }
+          return true; // keep if coordinates are unspecified
+        });
+      }
+    }
+
+    // 2. Proximity sorting: sort by haversine distance
+    filtered.sort((a, b) => {
+      const aLat = a.originLat != null ? parseFloat(a.originLat) : null;
+      const aLng = a.originLng != null ? parseFloat(a.originLng) : null;
+      const bLat = b.originLat != null ? parseFloat(b.originLat) : null;
+      const bLng = b.originLng != null ? parseFloat(b.originLng) : null;
+
+      const distA = (aLat !== null && aLng !== null)
+        ? haversineKm(userLat, userLng, aLat, aLng)
+        : Infinity;
+      const distB = (bLat !== null && bLng !== null)
+        ? haversineKm(userLat, userLng, bLat, bLng)
+        : Infinity;
+
+      return distA - distB;
+    });
+
+    // 3. Limit default feed to top 20 nearest rides (ONLY when not searching)
+    if (!isSearch) {
+      filtered = filtered.slice(0, 20);
+    }
+  } else if (!isSearch) {
+    // If not a search and no location, just show top 20 rides
+    filtered = filtered.slice(0, 20);
+  }
+
+  const user = await getUserFromRequest(req);
+  const formatted = await Promise.all(filtered.map(r => formatRide(r, undefined, user?.id)));
   res.json(formatted);
 });
 
@@ -168,7 +265,7 @@ router.post("/rides", async (req, res): Promise<void> => {
   }
 
   const { origin, destination, departure_time, available_seats, fare, transport_type, gender_preference,
-          origin_lat, origin_lng, dest_lat, dest_lng } = parsed.data;
+          origin_lat, origin_lng, dest_lat, dest_lng, notes } = parsed.data;
 
   const [ride] = await db.insert(ridesTable).values({
     driverId: user.id,
@@ -184,10 +281,11 @@ router.post("/rides", async (req, res): Promise<void> => {
     transportType: transport_type ?? "Car",
     genderPreference: gender_preference ?? "ANY",
     status: "OPEN",
+    notes: notes ?? null,
   }).returning();
 
   req.log.info({ rideId: ride.id, userId: user.id }, "Ride created");
-  res.status(201).json(await formatRide(ride, 0));
+  res.status(201).json(await formatRide(ride, 0, user.id));
 });
 
 router.get("/rides/my", async (req, res): Promise<void> => {
@@ -199,9 +297,9 @@ router.get("/rides/my", async (req, res): Promise<void> => {
 
   const rides = await db.select().from(ridesTable)
     .where(eq(ridesTable.driverId, user.id))
-    .orderBy(ridesTable.departureTime);
+    .orderBy(desc(ridesTable.updatedAt));
 
-  const formatted = await Promise.all(rides.map(r => formatRide(r)));
+  const formatted = await Promise.all(rides.map(r => formatRide(r, undefined, user.id)));
   res.json(formatted);
 });
 
@@ -218,7 +316,8 @@ router.get("/rides/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(await formatRide(ride));
+  const user = await getUserFromRequest(req);
+  res.json(await formatRide(ride, undefined, user?.id));
 });
 
 router.patch("/rides/:id", async (req, res): Promise<void> => {
@@ -268,9 +367,10 @@ router.patch("/rides/:id", async (req, res): Promise<void> => {
   if (dest_lat !== undefined) updateData.destLat = dest_lat !== null ? String(dest_lat) : null;
   if (dest_lng !== undefined) updateData.destLng = dest_lng !== null ? String(dest_lng) : null;
 
+  updateData.updatedAt = new Date();
   const [updated] = await db.update(ridesTable).set(updateData).where(eq(ridesTable.id, params.data.id)).returning();
 
-  res.json(await formatRide(updated));
+  res.json(await formatRide(updated, undefined, user.id));
 });
 
 router.delete("/rides/:id", async (req, res): Promise<void> => {
@@ -297,7 +397,8 @@ router.delete("/rides/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.update(ridesTable).set({ status: "CANCELLED" }).where(eq(ridesTable.id, params.data.id));
+  await db.update(ridesTable).set({ status: "CANCELLED", updatedAt: new Date() }).where(eq(ridesTable.id, params.data.id));
+  await db.update(rideRequestsTable).set({ status: "CANCELLED", updatedAt: new Date() }).where(eq(rideRequestsTable.rideId, params.data.id));
   res.sendStatus(204);
 });
 
@@ -326,8 +427,8 @@ router.get("/rides/:id/requests", async (req, res): Promise<void> => {
     return;
   }
 
-  const requests = await db.select().from(rideRequestsTable).where(eq(rideRequestsTable.rideId, id));
-  const rideFormatted = await formatRide(ride);
+  const requests = await db.select().from(rideRequestsTable).where(eq(rideRequestsTable.rideId, id)).orderBy(desc(rideRequestsTable.updatedAt));
+  const rideFormatted = await formatRide(ride, undefined, user.id);
 
   const result = await Promise.all(requests.map(async (r) => {
     const [rider] = await db.select().from(usersTable).where(eq(usersTable.id, r.riderId));
@@ -345,6 +446,7 @@ router.get("/rides/:id/requests", async (req, res): Promise<void> => {
       rider_phone: riderPhone,
       ride: rideFormatted,
       created_at: r.createdAt.toISOString(),
+      updated_at: r.updatedAt.toISOString(),
     };
   }));
 

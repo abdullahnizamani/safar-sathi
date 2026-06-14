@@ -8,4 +8,5 @@
 
 export interface RideRequestInput {
   ride_id: number;
+  requested_seats?: number;
 }

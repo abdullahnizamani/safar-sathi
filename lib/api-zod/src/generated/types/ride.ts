@@ -32,5 +32,7 @@ export interface Ride {
   gender_preference: RideGenderPreference;
   status: RideStatus;
   request_count?: number;
+  /** @nullable */
+  notes?: string | null;
   created_at: string;
 }

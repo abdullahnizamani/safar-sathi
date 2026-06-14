@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
 import { useGetRide, useGetMe, useCreateRideRequest, getGetRideQueryKey, getListRideRequestsQueryKey, getListMyRequestsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ export default function RideDetail() {
   });
 
   const createRequest = useCreateRideRequest();
+  const [requestedSeats, setRequestedSeats] = useState(1);
 
   if (isLoading) {
     return (
@@ -54,7 +56,7 @@ export default function RideDetail() {
 
   const handleRequestSeat = () => {
     createRequest.mutate(
-      { data: { ride_id: rideId } },
+      { data: { ride_id: rideId, requested_seats: requestedSeats } },
       {
         onSuccess: () => {
           toast({ title: "Request Sent!", description: "The driver has been notified of your request." });
@@ -140,6 +142,16 @@ export default function RideDetail() {
               </div>
             </div>
 
+            {ride.notes && (
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 mt-6">
+                <h4 className="font-bold text-sm text-primary mb-2 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Driver's Note
+                </h4>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{ride.notes}</p>
+              </div>
+            )}
+
             <Separator className="my-8" />
 
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
@@ -188,7 +200,23 @@ export default function RideDetail() {
               </div>
 
               {!isDriver && (
-                <div className="w-full sm:w-auto">
+                <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-3">
+                  {isAvailable && ride.available_seats > 1 && (
+                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-between sm:justify-start">
+                      <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">Seats:</span>
+                      <select
+                        value={requestedSeats}
+                        onChange={(e) => setRequestedSeats(Number(e.target.value))}
+                        className="rounded-lg border border-input bg-background px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                      >
+                        {Array.from({ length: ride.available_seats }).map((_, idx) => (
+                          <option key={idx + 1} value={idx + 1}>
+                            {idx + 1}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <Button
                     size="lg"
                     className="w-full font-bold shadow-md hover:shadow-lg transition-all"
@@ -198,7 +226,7 @@ export default function RideDetail() {
                   >
                     {createRequest.isPending ? "Sending..." :
                       !isAvailable ? "Ride Unavailable" :
-                        "Request a Seat"}
+                        requestedSeats > 1 ? `Request ${requestedSeats} Seats` : "Request a Seat"}
                   </Button>
                 </div>
               )}

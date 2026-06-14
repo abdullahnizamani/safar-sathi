@@ -9,8 +9,9 @@ import { getStatusColor } from "@/components/ride-card";
 import { Check, X, Users, ArrowRight, User, Clock, Phone } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "wouter";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-function RideRequests({ rideId, availableSeats }: { rideId: number; availableSeats: number }) {
+function RideRequests({ rideId, availableSeats, rideStatus }: { rideId: number; availableSeats: number; rideStatus?: string }) {
   const { data: requests, isLoading } = useListRideRequests(rideId, {
     query: { enabled: !!rideId, queryKey: getListRideRequestsQueryKey(rideId) },
   });
@@ -50,7 +51,14 @@ function RideRequests({ rideId, availableSeats }: { rideId: number; availableSea
               {req.rider_name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <div className="font-semibold text-sm">{req.rider_name}</div>
+              <div className="font-semibold text-sm flex items-center gap-2">
+                <span>{req.rider_name}</span>
+                {req.requested_seats > 1 && (
+                  <Badge variant="secondary" className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-600 border-0 shrink-0">
+                    {req.requested_seats} seats
+                  </Badge>
+                )}
+              </div>
               <div className="text-xs text-muted-foreground flex gap-2 items-center flex-wrap">
                 <span>{req.rider_university || "Unknown Uni"}</span>
                 {req.rider_gender && <span>• {req.rider_gender}</span>}
@@ -77,7 +85,7 @@ function RideRequests({ rideId, availableSeats }: { rideId: number; availableSea
                   variant="outline"
                   className="h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
                   onClick={() => handleUpdateStatus(req.id, "REJECTED")}
-                  disabled={updateRequest.isPending}
+                  disabled={updateRequest.isPending || rideStatus === "COMPLETED" || rideStatus === "CANCELLED"}
                 >
                   <X className="w-4 h-4 mr-1" /> Reject
                 </Button>
@@ -85,15 +93,32 @@ function RideRequests({ rideId, availableSeats }: { rideId: number; availableSea
                   size="sm"
                   className="h-8 bg-green-600 hover:bg-green-700 text-white"
                   onClick={() => handleUpdateStatus(req.id, "ACCEPTED")}
-                  disabled={updateRequest.isPending || availableSeats <= 0}
+                  disabled={updateRequest.isPending || availableSeats < req.requested_seats || rideStatus === "COMPLETED" || rideStatus === "CANCELLED"}
                 >
                   <Check className="w-4 h-4 mr-1" /> Accept
                 </Button>
               </>
             ) : (
-              <Badge variant="outline" className={getStatusColor(req.status)}>
-                {req.status}
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className={getStatusColor(req.status)}>
+                  {req.status}
+                </Badge>
+                {req.status === "ACCEPTED" && rideStatus !== "COMPLETED" && rideStatus !== "CANCELLED" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to kick ${req.rider_name} out of this ride?`)) {
+                        handleUpdateStatus(req.id, "REJECTED");
+                      }
+                    }}
+                    disabled={updateRequest.isPending}
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" /> Kick Out
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -134,6 +159,9 @@ export default function MyRides() {
     );
   };
 
+  const activeRides = rides?.filter((r) => r.status === "OPEN" || r.status === "FULL") ?? [];
+  const pastRides = rides?.filter((r) => r.status === "COMPLETED" || r.status === "CANCELLED") ?? [];
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
@@ -168,76 +196,144 @@ export default function MyRides() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-6">
-          <Accordion type="multiple" className="space-y-4">
-            {rides.map((ride) => (
-              <AccordionItem
-                key={ride.id}
-                value={`ride-${ride.id}`}
-                className="bg-card border rounded-2xl overflow-hidden shadow-sm px-0"
-              >
-                <AccordionTrigger className="hover:no-underline px-6 py-4 data-[state=open]:border-b">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full text-left pr-4 gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 font-bold text-lg flex-wrap">
-                        <span>{ride.origin}</span>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                        <span>{ride.destination}</span>
+        <Tabs defaultValue="active" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-muted/60 p-1 rounded-xl">
+            <TabsTrigger value="active" className="font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Active Offers ({activeRides.length})
+            </TabsTrigger>
+            <TabsTrigger value="past" className="font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Past & Cancelled ({pastRides.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active" className="space-y-4 outline-none">
+            {activeRides.length === 0 ? (
+              <div className="text-center py-12 bg-card border border-dashed rounded-2xl text-muted-foreground text-sm font-medium">
+                No active ride offers.
+              </div>
+            ) : (
+              <Accordion type="multiple" className="space-y-4">
+                {activeRides.map((ride) => (
+                  <AccordionItem
+                    key={ride.id}
+                    value={`ride-${ride.id}`}
+                    className="bg-card border rounded-2xl overflow-hidden shadow-sm px-0"
+                  >
+                    <AccordionTrigger className="hover:no-underline px-6 py-4 data-[state=open]:border-b">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full text-left pr-4 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 font-bold text-lg flex-wrap">
+                            <span>{ride.origin}</span>
+                            <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <span>{ride.destination}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" /> {formatDateTime(ride.departure_time)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3.5 h-3.5" /> {ride.available_seats} seats
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          {ride.request_count ? (
+                            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+                              {ride.request_count} Requests
+                            </Badge>
+                          ) : null}
+                          <Badge variant="outline" className={`border-0 ${getStatusColor(ride.status)}`}>
+                            {ride.status}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" /> {formatDateTime(ride.departure_time)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5" /> {ride.available_seats} seats
-                        </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-0">
+                      <div className="p-6 bg-card border-b flex justify-between items-center gap-4 flex-wrap">
+                        <div className="text-sm font-medium">
+                          Fare: <span className="text-primary font-bold">{formatPKR(ride.fare)}</span>
+                        </div>
+                        {ride.status === "OPEN" || ride.status === "FULL" ? (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive/20 hover:bg-destructive/10"
+                              onClick={() => handleCancelRide(ride.id)}
+                              disabled={updateRide.isPending}
+                            >
+                              Cancel Ride
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleCompleteRide(ride.id)}
+                              disabled={updateRide.isPending}
+                            >
+                              Mark Completed
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {ride.request_count ? (
-                        <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
-                          {ride.request_count} Requests
-                        </Badge>
-                      ) : null}
-                      <Badge variant="outline" className={`border-0 ${getStatusColor(ride.status)}`}>
-                        {ride.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-0">
-                  <div className="p-6 bg-card border-b flex justify-between items-center gap-4 flex-wrap">
-                    <div className="text-sm font-medium">
-                      Fare: <span className="text-primary font-bold">{formatPKR(ride.fare)}</span>
-                    </div>
-                    {ride.status === "OPEN" || ride.status === "FULL" ? (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive border-destructive/20 hover:bg-destructive/10"
-                          onClick={() => handleCancelRide(ride.id)}
-                          disabled={updateRide.isPending}
-                        >
-                          Cancel Ride
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleCompleteRide(ride.id)}
-                          disabled={updateRide.isPending}
-                        >
-                          Mark Completed
-                        </Button>
+                      <RideRequests rideId={ride.id} availableSeats={ride.available_seats} rideStatus={ride.status} />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
+          </TabsContent>
+
+          <TabsContent value="past" className="space-y-4 outline-none">
+            {pastRides.length === 0 ? (
+              <div className="text-center py-12 bg-card border border-dashed rounded-2xl text-muted-foreground text-sm font-medium">
+                No past or cancelled rides.
+              </div>
+            ) : (
+              <Accordion type="multiple" className="space-y-4">
+                {pastRides.map((ride) => (
+                  <AccordionItem
+                    key={ride.id}
+                    value={`ride-${ride.id}`}
+                    className="bg-card border rounded-2xl overflow-hidden shadow-sm px-0 opacity-80"
+                  >
+                    <AccordionTrigger className="hover:no-underline px-6 py-4 data-[state=open]:border-b">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full text-left pr-4 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 font-bold text-lg flex-wrap">
+                            <span>{ride.origin}</span>
+                            <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <span>{ride.destination}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" /> {formatDateTime(ride.departure_time)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3.5 h-3.5" /> {ride.available_seats} seats
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <Badge variant="outline" className={`border-0 ${getStatusColor(ride.status)}`}>
+                            {ride.status}
+                          </Badge>
+                        </div>
                       </div>
-                    ) : null}
-                  </div>
-                  <RideRequests rideId={ride.id} availableSeats={ride.available_seats} />
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-0">
+                      <div className="p-6 bg-card border-b flex justify-between items-center gap-4 flex-wrap">
+                        <div className="text-sm font-medium">
+                          Fare: <span className="text-primary font-bold">{formatPKR(ride.fare)}</span>
+                        </div>
+                      </div>
+                      <RideRequests rideId={ride.id} availableSeats={ride.available_seats} rideStatus={ride.status} />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

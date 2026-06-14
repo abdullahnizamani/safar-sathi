@@ -27,4 +27,5 @@ export interface RideInput {
   fare: number;
   transport_type?: string;
   gender_preference?: RideInputGenderPreference;
+  notes?: string;
 }

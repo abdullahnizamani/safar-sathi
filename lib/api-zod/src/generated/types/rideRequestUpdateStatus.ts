@@ -12,4 +12,5 @@ export type RideRequestUpdateStatus = typeof RideRequestUpdateStatus[keyof typeo
 export const RideRequestUpdateStatus = {
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED',
 } as const;

@@ -111,6 +111,8 @@ export interface Ride {
   gender_preference: RideGenderPreference;
   status: RideStatus;
   request_count?: number;
+  /** @nullable */
+  notes?: string | null;
   created_at: string;
 }
 
@@ -143,6 +145,7 @@ export interface RideInput {
   fare: number;
   transport_type?: string;
   gender_preference?: RideInputGenderPreference;
+  notes?: string;
 }
 
 export type RideUpdateGenderPreference = typeof RideUpdateGenderPreference[keyof typeof RideUpdateGenderPreference];
@@ -190,6 +193,7 @@ export const RideRequestStatus = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED',
 } as const;
 
 export interface RideRequest {
@@ -199,6 +203,7 @@ export interface RideRequest {
   rider_name: string;
   rider_university?: string;
   rider_gender?: string;
+  requested_seats: number;
   status: RideRequestStatus;
   /**
      * Revealed to the rider only when request is ACCEPTED
@@ -216,6 +221,7 @@ export interface RideRequest {
 
 export interface RideRequestInput {
   ride_id: number;
+  requested_seats?: number;
 }
 
 export type RideRequestUpdateStatus = typeof RideRequestUpdateStatus[keyof typeof RideRequestUpdateStatus];
@@ -224,6 +230,7 @@ export type RideRequestUpdateStatus = typeof RideRequestUpdateStatus[keyof typeo
 export const RideRequestUpdateStatus = {
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED',
 } as const;
 
 export interface RideRequestUpdate {

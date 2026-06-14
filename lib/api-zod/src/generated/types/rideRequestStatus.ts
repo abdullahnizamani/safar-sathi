@@ -13,4 +13,5 @@ export const RideRequestStatus = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED',
 } as const;

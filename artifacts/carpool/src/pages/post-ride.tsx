@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { MapboxGeocoder, type GeocoderResult } from "@/components/mapbox-geocoder";
+import { Textarea } from "@/components/ui/textarea";
 
 const rideSchema = z.object({
   origin: z.string().min(1, "Origin is required"),
@@ -26,6 +27,7 @@ const rideSchema = z.object({
   fare: z.coerce.number().min(0, "Fare must be 0 or more"),
   transport_type: z.string().min(1, "Transport type is required"),
   gender_preference: z.enum(["ANY", "MALE", "FEMALE"]),
+  notes: z.string().optional(),
 });
 
 type RideFormValues = z.infer<typeof rideSchema>;
@@ -55,6 +57,7 @@ export default function PostRide() {
       fare: 500,
       transport_type: "Car",
       gender_preference: "ANY",
+      notes: "",
     },
   });
 
@@ -74,6 +77,7 @@ export default function PostRide() {
           fare: data.fare,
           transport_type: data.transport_type,
           gender_preference: data.gender_preference,
+          notes: data.notes?.trim() || undefined,
         },
       },
       {
@@ -219,6 +223,22 @@ export default function PostRide() {
                   </FormItem>
                 )} />
               </div>
+
+              <FormField control={form.control} name="notes" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Note / Comment (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="e.g. Please be on time; I will wait maximum 5 minutes at the pickup point." 
+                      className="resize-none font-medium"
+                      rows={3}
+                      {...field} 
+                      data-testid="input-notes"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
 
               <Button type="submit" size="lg" className="w-full font-bold text-md mt-4" disabled={createRide.isPending} data-testid="button-post-ride">
                 {createRide.isPending ? "Publishing..." : "Post Ride"}

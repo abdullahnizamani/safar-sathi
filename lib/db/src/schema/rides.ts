@@ -18,9 +18,11 @@ export const ridesTable = pgTable("rides", {
   transportType: varchar("transport_type", { length: 50 }).notNull().default("Car"),
   genderPreference: varchar("gender_preference", { length: 10 }).notNull().default("ANY"),
   status: varchar("status", { length: 15 }).notNull().default("OPEN"),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const insertRideSchema = createInsertSchema(ridesTable).omit({ id: true, createdAt: true });
+export const insertRideSchema = createInsertSchema(ridesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertRide = z.infer<typeof insertRideSchema>;
 export type Ride = typeof ridesTable.$inferSelect;
