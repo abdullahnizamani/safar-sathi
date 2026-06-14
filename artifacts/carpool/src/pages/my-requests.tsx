@@ -101,7 +101,7 @@ export default function MyRequests() {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           
-          await customFetch(`/requests/${requestId}/marker`, {
+          await customFetch(`/api/requests/${requestId}/marker`, {
             method: "POST",
             body: JSON.stringify({ lat, lng }),
           });

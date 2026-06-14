@@ -168,4 +168,10 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+  button, [role="button"], a {
+    cursor: pointer;
+  }
+  button:disabled, [role="button"]:disabled, a:disabled {
+    cursor: not-allowed;
+  }
 }
