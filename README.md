@@ -113,6 +113,6 @@ The codebase is configured to build and package serverless functions cleanly on 
 
 ## Dummy Test Accounts
 
-For testing the passenger location sharing and driver tracking map integration, you can register these two dummy users:
+For testing the passenger location sharing and driver tracking map integration, you can use these two dummy users, the password is same as the user:
 1. **Driver**: `driver_test` (for posting a ride and viewing passenger location tracking maps)
 2. **Passenger**: `passenger_test` (for requesting to join a ride and sharing location markers)
