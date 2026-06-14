@@ -50,20 +50,20 @@
 }
 
 :root {
-  --background: 240 10% 6%;
+  --background: 240 10% 12%;
   --foreground: 0 0% 98%;
   
-  --border: 240 9% 18%;
-  --input: 240 9% 18%;
+  --border: 240 8% 24%;
+  --input: 240 8% 24%;
   --ring: 272 75% 60%;
 
-  --card: 240 6% 10%;
+  --card: 240 10% 16%;
   --card-foreground: 0 0% 98%;
-  --card-border: 240 9% 18%;
+  --card-border: 240 8% 24%;
 
-  --popover: 240 6% 10%;
+  --popover: 240 10% 16%;
   --popover-foreground: 0 0% 98%;
-  --popover-border: 240 9% 18%;
+  --popover-border: 240 8% 24%;
 
   --primary: 272 75% 60%;
   --primary-foreground: 0 0% 100%;
@@ -71,7 +71,7 @@
   --secondary: 39 100% 50%;
   --secondary-foreground: 39 100% 85%;
 
-  --muted: 240 6% 13%;
+  --muted: 240 10% 18%;
   --muted-foreground: 240 5% 65%;
 
   --accent: 272 30% 15%;
@@ -120,7 +120,7 @@
 
 /* Premium Styling Utilities */
 .glass-panel {
-  background: rgba(24, 24, 28, 0.7);
+  background: rgba(35, 35, 44, 0.7);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
