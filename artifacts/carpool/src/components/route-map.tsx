@@ -5,6 +5,13 @@ import { Loader2, MapPin } from "lucide-react";
 
 declare const __MAPBOX_TOKEN__: string;
 
+export interface PassengerMarker {
+  lat: number;
+  lng: number;
+  label: string;
+  name: string;
+}
+
 interface RouteMapProps {
   originLat: number;
   originLng: number;
@@ -13,6 +20,7 @@ interface RouteMapProps {
   originLabel?: string;
   destLabel?: string;
   className?: string;
+  passengers?: PassengerMarker[];
 }
 
 export function RouteMap({
@@ -23,6 +31,7 @@ export function RouteMap({
   originLabel = "Pickup",
   destLabel = "Dropoff",
   className = "w-full h-64 rounded-xl overflow-hidden",
+  passengers = [],
 }: RouteMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -49,22 +58,53 @@ export function RouteMap({
 
     map.on("load", async () => {
       // Add origin marker
-      new mapboxgl.Marker({ color: "#6366f1" })
+      new mapboxgl.Marker({ color: "#22C55E" })
         .setLngLat([originLng, originLat])
         .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(originLabel))
         .addTo(map);
 
       // Add destination marker
-      new mapboxgl.Marker({ color: "#f43f5e" })
+      new mapboxgl.Marker({ color: "#EF4444" })
         .setLngLat([destLng, destLat])
         .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(destLabel))
         .addTo(map);
 
-      // Fit bounds to show both markers
+      // Add passenger markers
+      if (passengers && passengers.length > 0) {
+        passengers.forEach((p) => {
+          const el = document.createElement("div");
+          el.style.width = "24px";
+          el.style.height = "24px";
+          el.style.borderRadius = "50%";
+          el.style.backgroundColor = "#7C3AED";
+          el.style.border = "2px solid white";
+          el.style.color = "white";
+          el.style.display = "flex";
+          el.style.alignItems = "center";
+          el.style.justifyContent = "center";
+          el.style.fontWeight = "900";
+          el.style.fontSize = "12px";
+          el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+          el.className = "cursor-pointer";
+          el.innerHTML = p.label;
+
+          new mapboxgl.Marker(el)
+            .setLngLat([p.lng, p.lat])
+            .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(`${p.name}'s Location`))
+            .addTo(map);
+        });
+      }
+
+      // Fit bounds to show all markers
       const bounds = new mapboxgl.LngLatBounds(
         [originLng, originLat],
         [destLng, destLat]
       );
+      if (passengers && passengers.length > 0) {
+        passengers.forEach((p) => {
+          bounds.extend([p.lng, p.lat]);
+        });
+      }
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 800 });
 
       // Fetch route from Directions API
@@ -87,7 +127,7 @@ export function RouteMap({
             source: "route",
             layout: { "line-join": "round", "line-cap": "round" },
             paint: {
-              "line-color": "#6366f1",
+              "line-color": "#7C3AED",
               "line-width": 4,
               "line-opacity": 0.85,
             },
@@ -109,7 +149,7 @@ export function RouteMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [originLat, originLng, destLat, destLng, originLabel, destLabel]);
+  }, [originLat, originLng, destLat, destLng, originLabel, destLabel, passengers]);
 
   if (error) {
     return (

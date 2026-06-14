@@ -65,7 +65,7 @@ export default function Home() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <section className="bg-card border rounded-2xl p-6 shadow-sm">
+      <section className="bg-card/50 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
         <h1 className="text-2xl font-bold mb-6 text-foreground">Find a ride</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -135,7 +135,7 @@ export default function Home() {
 
           {/* Actions */}
           <div className="md:col-span-2 flex gap-2">
-            <Button onClick={handleSearch} className="flex-1 font-bold">
+            <Button onClick={handleSearch} className="flex-1 font-bold btn-gradient">
               Search
             </Button>
             {hasFilters && (

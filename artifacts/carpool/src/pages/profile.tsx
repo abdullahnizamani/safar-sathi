@@ -181,7 +181,7 @@ export default function Profile() {
       <h1 className="text-3xl font-extrabold tracking-tight">My Profile</h1>
 
       {/* Identity card */}
-      <Card className="border shadow-sm" data-testid="profile-card">
+      <Card className="bg-card/50 backdrop-blur-md border border-border/80 shadow-md" data-testid="profile-card">
         <CardContent className="pt-6">
           {userLoading ? (
             <div className="space-y-4">
@@ -271,7 +271,7 @@ export default function Profile() {
       </Card>
 
       {/* Reviews section */}
-      <Card className="border shadow-sm">
+      <Card className="bg-card/50 backdrop-blur-md border border-border/80 shadow-md">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <MessageSquare className="w-5 h-5 text-primary" />
@@ -344,7 +344,7 @@ export default function Profile() {
       </Card>
 
       {/* Edit Profile Details card */}
-      <Card className="border shadow-sm">
+      <Card className="bg-card/50 backdrop-blur-md border border-border/80 shadow-md">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <User className="w-5 h-5 text-primary" />
@@ -431,7 +431,7 @@ export default function Profile() {
             </div>
             <Button
               type="submit"
-              className="w-full font-semibold"
+              className="w-full font-semibold btn-gradient"
               disabled={updateProfile.isPending}
             >
               {updateProfile.isPending ? "Saving changes..." : "Save Changes"}

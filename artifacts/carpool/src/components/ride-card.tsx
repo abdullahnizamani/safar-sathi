@@ -45,7 +45,7 @@ export default function RideCard({ ride }: RideCardProps) {
   return (
     <Link href={`/rides/${ride.id}`}>
       <Card
-        className="hover-elevate cursor-pointer transition-all duration-200 group border-border/50 shadow-sm hover:shadow-md hover:border-primary/20"
+        className="glow-card cursor-pointer group border-border/60 shadow-sm"
         data-testid={`card-ride-${ride.id}`}
       >
         <CardHeader className="pb-3 px-5 pt-5">

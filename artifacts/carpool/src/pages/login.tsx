@@ -43,8 +43,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
-      <div className="w-full max-w-md bg-card border rounded-2xl shadow-sm p-8">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-purple-950/20 to-background">
+      <div className="w-full max-w-md bg-card/60 backdrop-blur-md border border-border/80 rounded-2xl shadow-xl p-8">
         <div className="flex justify-center mb-6 text-primary">
           <Car className="w-12 h-12" />
         </div>
@@ -75,7 +75,7 @@ export default function Login() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full mt-6" disabled={loginMutation.isPending}>
+            <Button type="submit" className="w-full mt-6 btn-gradient" disabled={loginMutation.isPending}>
               {loginMutation.isPending ? "Signing in..." : "Sign In"}
             </Button>
           </form>

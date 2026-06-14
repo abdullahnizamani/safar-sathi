@@ -4,6 +4,7 @@ import {
   useCreateReview,
   useUpdateRideRequest,
   getListMyRequestsQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,62 @@ export default function MyRequests() {
   const [target, setTarget] = useState<ReviewTarget | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [sharingLocationId, setSharingLocationId] = useState<number | null>(null);
+
+  const handleShareLocation = (requestId: number, isUpdate: boolean) => {
+    setSharingLocationId(requestId);
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocation Unsupported",
+        description: "Your browser does not support geolocation.",
+        variant: "destructive",
+      });
+      setSharingLocationId(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          
+          await customFetch(`/requests/${requestId}/marker`, {
+            method: "POST",
+            body: JSON.stringify({ lat, lng }),
+          });
+
+          toast({
+            title: isUpdate ? "Location Updated" : "Location Shared",
+            description: isUpdate 
+              ? "Your location marker has been updated successfully!" 
+              : "Your location marker has been shared with the driver!",
+          });
+          queryClient.invalidateQueries({ queryKey: getListMyRequestsQueryKey() });
+        } catch (err: any) {
+          console.error("Error sharing location:", err);
+          const msg = err.data?.error || err.message || "Failed to share location marker.";
+          toast({
+            title: "Sharing Failed",
+            description: msg,
+            variant: "destructive",
+          });
+        } finally {
+          setSharingLocationId(null);
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        toast({
+          title: "Permission Denied / Error",
+          description: "Could not retrieve your location. Please check browser permissions.",
+          variant: "destructive",
+        });
+        setSharingLocationId(null);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const handleCancelRequest = (requestId: number) => {
     if (confirm("Are you sure you want to cancel this request?")) {
@@ -204,7 +261,7 @@ export default function MyRequests() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {activeRequests.map((req) => {
+                {activeRequests.map((req: any) => {
                   const isAccepted = req.status === "ACCEPTED";
                   const alreadyReviewed = !!req.reviewed || reviewedRideIds.has(req.ride_id);
 
@@ -240,14 +297,40 @@ export default function MyRequests() {
                                 </span>
                               </div>
 
-                              {isAccepted && req.driver_phone && (
-                                <a
-                                  href={`tel:${req.driver_phone}`}
-                                  className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors w-fit"
-                                >
-                                  <Phone className="w-4 h-4" />
-                                  Call driver: {req.driver_phone}
-                                </a>
+                              {isAccepted && (
+                                <div className="flex flex-col gap-2 mt-2">
+                                  {req.marker_lat != null && (
+                                    <div className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                      Marker: {req.marker_lat.toFixed(4)}, {req.marker_lng.toFixed(4)}
+                                      {req.marker_updated_at ? ` (Updated ${new Date(req.marker_updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ''}
+                                    </div>
+                                  )}
+                                  <div className="flex flex-wrap gap-2">
+                                    {req.driver_phone && (
+                                      <a
+                                        href={`tel:${req.driver_phone}`}
+                                        className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors w-fit"
+                                      >
+                                        <Phone className="w-4 h-4" />
+                                        Call driver: {req.driver_phone}
+                                      </a>
+                                    )}
+                                    <Button
+                                      onClick={() => handleShareLocation(req.id, req.marker_lat != null)}
+                                      disabled={sharingLocationId === req.id}
+                                      variant="outline"
+                                      className="inline-flex items-center gap-2 border-violet-500/30 text-violet-400 hover:bg-violet-950/30 hover:text-violet-300 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors w-fit"
+                                    >
+                                      <Map className="w-4 h-4 text-violet-400" />
+                                      {sharingLocationId === req.id
+                                        ? "Sharing..."
+                                        : req.marker_lat != null
+                                        ? "Update Location Marker"
+                                        : "Share Location Marker"}
+                                    </Button>
+                                  </div>
+                                </div>
                               )}
                             </div>
                           )}

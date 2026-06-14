@@ -6,12 +6,51 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime, formatPKR } from "@/lib/format";
 import { getStatusColor } from "@/components/ride-card";
-import { Check, X, Users, ArrowRight, User, Clock, Phone } from "lucide-react";
+import { Check, X, Users, ArrowRight, User, Clock, Phone, MapPin } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "wouter";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { RouteMap } from "@/components/route-map";
 
-function RideRequests({ rideId, availableSeats, rideStatus }: { rideId: number; availableSeats: number; rideStatus?: string }) {
+function formatTimeAgo(dateStr: string | null) {
+  if (!dateStr) return "never";
+  try {
+    const diffMs = new Date().getTime() - new Date(dateStr).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 1) return "just now";
+    if (diffMin === 1) return "1m ago";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr === 1) return "1h ago";
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return new Date(dateStr).toLocaleDateString([], { month: "short", day: "numeric" });
+  } catch {
+    return "recently";
+  }
+}
+
+function RideRequests({
+  rideId,
+  availableSeats,
+  rideStatus,
+  originLat,
+  originLng,
+  destLat,
+  destLng,
+  origin,
+  destination,
+}: {
+  rideId: number;
+  availableSeats: number;
+  rideStatus?: string;
+  originLat: number | null;
+  originLng: number | null;
+  destLat: number | null;
+  destLng: number | null;
+  origin: string;
+  destination: string;
+}) {
   const { data: requests, isLoading } = useListRideRequests(rideId, {
     query: { enabled: !!rideId, queryKey: getListRideRequestsQueryKey(rideId) },
   });
@@ -39,9 +78,68 @@ function RideRequests({ rideId, availableSeats, rideStatus }: { rideId: number; 
     );
   };
 
+  const acceptedRequests = requests?.filter(
+    (req: any) => req.status === "ACCEPTED" && req.marker_lat != null && req.marker_lng != null
+  ) || [];
+
+  const passengerMarkers = acceptedRequests.map((req: any, idx) => ({
+    lat: req.marker_lat!,
+    lng: req.marker_lng!,
+    label: String(idx + 1),
+    name: req.rider_name,
+  }));
+
+  const hasCoords =
+    originLat != null &&
+    originLng != null &&
+    destLat != null &&
+    destLng != null;
+
   return (
     <div className="divide-y border-t bg-muted/20">
-      {requests.map((req) => (
+      {hasCoords && acceptedRequests.length > 0 && (
+        <div className="p-4 sm:p-6 border-b bg-card">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Passenger Locations Map
+          </div>
+          <RouteMap
+            originLat={originLat!}
+            originLng={originLng!}
+            destLat={destLat!}
+            destLng={destLng!}
+            originLabel={origin}
+            destLabel={destination}
+            passengers={passengerMarkers}
+            className="w-full h-64 rounded-xl overflow-hidden"
+          />
+          {/* Legend */}
+          <div className="mt-3 space-y-2">
+            <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" />
+              <span>Rider Map Locations</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {acceptedRequests.map((req: any, idx) => (
+                <div key={req.id} className="flex items-center gap-2 bg-background/50 border rounded-lg p-2">
+                  <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center shrink-0">
+                    {idx + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate">{req.rider_name}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {req.marker_updated_at 
+                        ? `Shared ${formatTimeAgo(req.marker_updated_at)}` 
+                        : "No time provided"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {requests.map((req: any) => (
         <div
           key={req.id}
           className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -64,15 +162,30 @@ function RideRequests({ rideId, availableSeats, rideStatus }: { rideId: number; 
                 {req.rider_gender && <span>• {req.rider_gender}</span>}
               </div>
 
-              {/* Rider phone — revealed to driver when ACCEPTED */}
-              {req.status === "ACCEPTED" && req.rider_phone && (
-                <a
-                  href={`tel:${req.rider_phone}`}
-                  className="inline-flex items-center gap-1.5 mt-1.5 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-md px-2.5 py-1 text-xs font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
-                >
-                  <Phone className="w-3 h-3" />
-                  {req.rider_phone}
-                </a>
+              {/* Contact actions */}
+              {req.status === "ACCEPTED" && (
+                <div className="flex gap-2 flex-wrap mt-1.5">
+                  {req.rider_phone && (
+                    <a
+                      href={`tel:${req.rider_phone}`}
+                      className="inline-flex items-center gap-1.5 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-md px-2.5 py-1 text-xs font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                    >
+                      <Phone className="w-3 h-3" />
+                      {req.rider_phone}
+                    </a>
+                  )}
+                  {req.marker_lat != null && req.marker_lng != null && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${req.marker_lat},${req.marker_lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 bg-violet-950/40 border border-violet-850 text-violet-400 rounded-md px-2.5 py-1 text-xs font-semibold hover:bg-violet-900/50 transition-colors"
+                    >
+                      <MapPin className="w-3 h-3 text-violet-400" />
+                      Navigate
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -275,7 +388,17 @@ export default function MyRides() {
                           </div>
                         ) : null}
                       </div>
-                      <RideRequests rideId={ride.id} availableSeats={ride.available_seats} rideStatus={ride.status} />
+                      <RideRequests
+                        rideId={ride.id}
+                        availableSeats={ride.available_seats}
+                        rideStatus={ride.status}
+                        originLat={ride.origin_lat ?? null}
+                        originLng={ride.origin_lng ?? null}
+                        destLat={ride.dest_lat ?? null}
+                        destLng={ride.dest_lng ?? null}
+                        origin={ride.origin}
+                        destination={ride.destination}
+                      />
                     </AccordionContent>
                   </AccordionItem>
                 ))}
@@ -326,7 +449,17 @@ export default function MyRides() {
                           Fare: <span className="text-primary font-bold">{formatPKR(ride.fare)}</span>
                         </div>
                       </div>
-                      <RideRequests rideId={ride.id} availableSeats={ride.available_seats} rideStatus={ride.status} />
+                      <RideRequests
+                        rideId={ride.id}
+                        availableSeats={ride.available_seats}
+                        rideStatus={ride.status}
+                        originLat={ride.origin_lat ?? null}
+                        originLng={ride.origin_lng ?? null}
+                        destLat={ride.dest_lat ?? null}
+                        destLng={ride.dest_lng ?? null}
+                        origin={ride.origin}
+                        destination={ride.destination}
+                      />
                     </AccordionContent>
                   </AccordionItem>
                 ))}

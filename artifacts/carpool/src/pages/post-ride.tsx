@@ -116,10 +116,11 @@ export default function PostRide() {
         <p className="text-muted-foreground mt-2 text-lg">Share your journey and split the cost.</p>
       </div>
 
-      <Card className="border shadow-sm">
+      <Card className="bg-card/50 backdrop-blur-md border border-border/80 shadow-md">
         <CardContent className="pt-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
@@ -240,7 +241,7 @@ export default function PostRide() {
                 </FormItem>
               )} />
 
-              <Button type="submit" size="lg" className="w-full font-bold text-md mt-4" disabled={createRide.isPending} data-testid="button-post-ride">
+              <Button type="submit" size="lg" className="w-full font-bold text-md mt-4 btn-gradient" disabled={createRide.isPending} data-testid="button-post-ride">
                 {createRide.isPending ? "Publishing..." : "Post Ride"}
               </Button>
             </form>
