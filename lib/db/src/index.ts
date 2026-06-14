@@ -10,7 +10,14 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const isRemoteDb = process.env.DATABASE_URL.includes("supabase.co") || 
+                     process.env.DATABASE_URL.includes("neon.tech") || 
+                     !process.env.DATABASE_URL.includes("localhost") && !process.env.DATABASE_URL.includes("127.0.0.1");
+
+export const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
