@@ -108,3 +108,11 @@ The codebase is configured to build and package serverless functions cleanly on 
 
 - **Frontend**: Vite outputs static assets to `dist` which Vercel serves at edge nodes. Routing rewrites send `/api/*` requests directly to the API Server.
 - **Backend API**: Uses an ESM esbuild bundler target mapping routes to a Zero-Config Express Serverless Function handler located in `api/index.js`.
+
+---
+
+## Dummy Test Accounts
+
+For testing the passenger location sharing and driver tracking map integration, you can register these two dummy users:
+1. **Driver**: `driver_test` (for posting a ride and viewing passenger location tracking maps)
+2. **Passenger**: `passenger_test` (for requesting to join a ride and sharing location markers)
