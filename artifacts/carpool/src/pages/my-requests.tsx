@@ -146,8 +146,17 @@ export default function MyRequests() {
     );
   };
 
-  const activeRequests = requests?.filter((r) => r.status === "PENDING" || r.status === "ACCEPTED") ?? [];
-  const pastRequests = requests?.filter((r) => r.status === "CANCELLED" || r.status === "REJECTED") ?? [];
+  const activeRequests = requests?.filter((r) => 
+    (r.status === "PENDING" || r.status === "ACCEPTED") &&
+    r.ride?.status !== "COMPLETED" &&
+    r.ride?.status !== "CANCELLED"
+  ) ?? [];
+  const pastRequests = requests?.filter((r) => 
+    r.status === "CANCELLED" || 
+    r.status === "REJECTED" || 
+    r.ride?.status === "COMPLETED" || 
+    r.ride?.status === "CANCELLED"
+  ) ?? [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -197,7 +206,7 @@ export default function MyRequests() {
               <div className="grid gap-4">
                 {activeRequests.map((req) => {
                   const isAccepted = req.status === "ACCEPTED";
-                  const alreadyReviewed = reviewedRideIds.has(req.ride_id);
+                  const alreadyReviewed = !!req.reviewed || reviewedRideIds.has(req.ride_id);
 
                   return (
                     <Card
@@ -313,7 +322,7 @@ export default function MyRequests() {
               <div className="grid gap-4">
                 {pastRequests.map((req) => {
                   const isAccepted = req.status === "ACCEPTED";
-                  const alreadyReviewed = reviewedRideIds.has(req.ride_id);
+                  const alreadyReviewed = !!req.reviewed || reviewedRideIds.has(req.ride_id);
 
                   return (
                     <Card

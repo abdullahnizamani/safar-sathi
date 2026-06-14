@@ -647,7 +647,11 @@ components:
           description: Revealed to the driver only when request is ACCEPTED
         ride:
           $ref: "#/components/schemas/Ride"
+        reviewed:
+          type: boolean
         created_at:
+          type: string
+        updated_at:
           type: string
 
     RideRequestInput:

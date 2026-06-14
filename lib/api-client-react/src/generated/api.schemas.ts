@@ -216,7 +216,9 @@ export interface RideRequest {
      */
   rider_phone?: string | null;
   ride?: Ride;
+  reviewed?: boolean;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface RideRequestInput {

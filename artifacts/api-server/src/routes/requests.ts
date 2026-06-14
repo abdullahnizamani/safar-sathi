@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count } from "drizzle-orm";
 import { db, rideRequestsTable, ridesTable, usersTable, reviewsTable } from "@workspace/db";
 import {
   CreateRideRequestBody,
@@ -27,6 +27,11 @@ async function formatRequest(
 
   if (ride) {
     const [driver] = await db.select().from(usersTable).where(eq(usersTable.id, ride.driverId));
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(rideRequestsTable)
+      .where(eq(rideRequestsTable.rideId, ride.id));
+    const reqCount = Number(countResult?.count ?? 0);
 
     rideFormatted = {
       id: ride.id,
@@ -41,7 +46,7 @@ async function formatRequest(
       transport_type: ride.transportType,
       gender_preference: ride.genderPreference,
       status: ride.status,
-      request_count: 0,
+      request_count: reqCount,
       created_at: ride.createdAt.toISOString(),
       updated_at: ride.updatedAt.toISOString(),
     };
@@ -237,11 +242,10 @@ router.patch("/requests/:id", async (req, res): Promise<void> => {
 
     req.log.info({ rideId: ride.id, newSeats, rideStatus: newRideStatus }, "Ride seats decremented after accept");
   }
-
   // When cancelled/rejected from accepted, restore seats
   if (rideRequest.status === "ACCEPTED" && status !== "ACCEPTED") {
     const newSeats = ride.availableSeats + rideRequest.requestedSeats;
-    const newRideStatus = "OPEN";
+    const newRideStatus = newSeats > 0 ? "OPEN" : "FULL";
     await db.update(ridesTable)
       .set({ availableSeats: newSeats, status: newRideStatus, updatedAt: new Date() })
       .where(eq(ridesTable.id, ride.id));

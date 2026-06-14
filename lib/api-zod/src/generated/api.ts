@@ -321,7 +321,9 @@ export const ListRideRequestsResponseItem = zod.object({
   "notes": zod.string().nullish(),
   "created_at": zod.string()
 }).optional(),
-  "created_at": zod.string()
+  "reviewed": zod.boolean().optional(),
+  "created_at": zod.string(),
+  "updated_at": zod.string().optional()
 })
 export const ListRideRequestsResponse = zod.array(ListRideRequestsResponseItem)
 
@@ -373,7 +375,9 @@ export const ListMyRequestsResponseItem = zod.object({
   "notes": zod.string().nullish(),
   "created_at": zod.string()
 }).optional(),
-  "created_at": zod.string()
+  "reviewed": zod.boolean().optional(),
+  "created_at": zod.string(),
+  "updated_at": zod.string().optional()
 })
 export const ListMyRequestsResponse = zod.array(ListMyRequestsResponseItem)
 
@@ -422,7 +426,9 @@ export const UpdateRideRequestResponse = zod.object({
   "notes": zod.string().nullish(),
   "created_at": zod.string()
 }).optional(),
-  "created_at": zod.string()
+  "reviewed": zod.boolean().optional(),
+  "created_at": zod.string(),
+  "updated_at": zod.string().optional()
 })
 
 
