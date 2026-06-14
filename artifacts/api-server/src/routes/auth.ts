@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import {
@@ -187,22 +188,11 @@ router.delete("/auth/profile", async (req, res): Promise<void> => {
   }
 });
 
-const uploadDir = "public/uploads/";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const storage = multer.diskStorage({
-  destination: (_req: any, _file: any, cb: any) => {
-    cb(null, uploadDir);
-  },
-  filename: (_req: any, file: any, cb: any) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + "-" + uniqueSuffix + ext);
-  },
-});
-
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 router.post("/users/avatar", upload.single("avatar"), async (req: any, res): Promise<void> => {
@@ -217,16 +207,37 @@ router.post("/users/avatar", upload.single("avatar"), async (req: any, res): Pro
     return;
   }
 
-  const relativePath = `/uploads/${req.file.filename}`;
+  try {
+    const ext = path.extname(req.file.originalname);
+    const filename = `user-${user.id}-${Date.now()}${ext}`;
 
-  const [updated] = await db
-    .update(usersTable)
-    .set({ avatarUrl: relativePath })
-    .where(eq(usersTable.id, user.id))
-    .returning();
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filename, req.file.buffer, {
+        contentType: req.file.mimetype,
+      });
 
-  req.log.info({ userId: user.id }, "Avatar uploaded");
-  res.json(serializeUser(updated));
+    if (uploadError) {
+      req.log.error({ error: uploadError.message }, "Supabase storage upload failed");
+      res.status(500).json({ error: "Failed to upload avatar to storage" });
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filename);
+    const publicUrl = urlData.publicUrl;
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ avatarUrl: publicUrl })
+      .where(eq(usersTable.id, user.id))
+      .returning();
+
+    req.log.info({ userId: user.id }, "Avatar uploaded to Supabase");
+    res.json(serializeUser(updated));
+  } catch (err: any) {
+    req.log.error({ userId: user.id, error: err.message }, "Failed avatar upload process");
+    res.status(500).json({ error: "Failed to process avatar upload" });
+  }
 });
 
 export { router as authRouter };
