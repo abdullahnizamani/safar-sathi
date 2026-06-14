@@ -434,6 +434,14 @@ router.get("/rides/:id/requests", async (req, res): Promise<void> => {
     const [rider] = await db.select().from(usersTable).where(eq(usersTable.id, r.riderId));
     // Rider phone revealed to the driver only when ACCEPTED
     const riderPhone = r.status === "ACCEPTED" ? (rider?.phoneNumber ?? null) : null;
+    
+    const initials = rider?.username
+      ? rider.username.slice(0, 2).toUpperCase()
+      : "UN";
+    const colors = ["#7C3AED", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#6366F1"];
+    const colorIndex = (r.riderId || 0) % colors.length;
+    const avatarColor = colors[colorIndex];
+
     return {
       id: r.id,
       ride_id: r.rideId,
@@ -445,6 +453,11 @@ router.get("/rides/:id/requests", async (req, res): Promise<void> => {
       driver_phone: null,   // driver viewing own requests — they know their own number
       rider_phone: riderPhone,
       ride: rideFormatted,
+      marker_lat: r.markerLat ? Number(r.markerLat) : null,
+      marker_lng: r.markerLng ? Number(r.markerLng) : null,
+      marker_updated_at: r.markerUpdatedAt ? r.markerUpdatedAt.toISOString() : null,
+      rider_initials: initials,
+      rider_avatar_color: avatarColor,
       created_at: r.createdAt.toISOString(),
       updated_at: r.updatedAt.toISOString(),
     };

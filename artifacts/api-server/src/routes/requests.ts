@@ -69,6 +69,13 @@ async function formatRequest(
       eq(reviewsTable.rideId, r.rideId)
     ));
 
+  const initials = rider?.username
+    ? rider.username.slice(0, 2).toUpperCase()
+    : "UN";
+  const colors = ["#7C3AED", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#6366F1"];
+  const colorIndex = (r.riderId || 0) % colors.length;
+  const avatarColor = colors[colorIndex];
+
   return {
     id: r.id,
     ride_id: r.rideId,
@@ -82,6 +89,11 @@ async function formatRequest(
     rider_phone: riderPhone,
     ride: rideFormatted,
     reviewed: !!existingReview,
+    marker_lat: r.markerLat ? Number(r.markerLat) : null,
+    marker_lng: r.markerLng ? Number(r.markerLng) : null,
+    marker_updated_at: r.markerUpdatedAt ? r.markerUpdatedAt.toISOString() : null,
+    rider_initials: initials,
+    rider_avatar_color: avatarColor,
     created_at: r.createdAt.toISOString(),
     updated_at: r.updatedAt.toISOString(),
   };
@@ -252,6 +264,66 @@ router.patch("/requests/:id", async (req, res): Promise<void> => {
 
     req.log.info({ rideId: ride.id, newSeats, rideStatus: newRideStatus }, "Ride seats restored after cancellation/kick out");
   }
+
+  res.json(await formatRequest(updated, user.id));
+});
+
+router.post("/requests/:id/marker", async (req, res): Promise<void> => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const { id } = req.params;
+  const reqId = Number(id);
+  if (isNaN(reqId)) {
+    res.status(400).json({ error: "Invalid request ID" });
+    return;
+  }
+
+  const { lat, lng } = req.body;
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    res.status(400).json({ error: "Latitude and longitude must be numbers" });
+    return;
+  }
+
+  const [rideRequest] = await db.select().from(rideRequestsTable).where(eq(rideRequestsTable.id, reqId));
+  if (!rideRequest) {
+    res.status(404).json({ error: "Request not found" });
+    return;
+  }
+
+  if (rideRequest.riderId !== user.id) {
+    res.status(403).json({ error: "Forbidden: You are not the passenger of this request" });
+    return;
+  }
+
+  if (rideRequest.status !== "ACCEPTED") {
+    res.status(400).json({ error: "Cannot send location marker for a non-accepted request" });
+    return;
+  }
+
+  // Rate limit check: 30 seconds
+  const now = new Date();
+  if (rideRequest.markerUpdatedAt) {
+    const timeDiff = now.getTime() - new Date(rideRequest.markerUpdatedAt).getTime();
+    if (timeDiff < 30000) {
+      const waitSec = Math.ceil((30000 - timeDiff) / 1000);
+      res.status(429).json({ error: `Please wait ${waitSec} seconds before updating your location marker again` });
+      return;
+    }
+  }
+
+  const [updated] = await db.update(rideRequestsTable)
+    .set({
+      markerLat: String(lat),
+      markerLng: String(lng),
+      markerUpdatedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(rideRequestsTable.id, reqId))
+    .returning();
 
   res.json(await formatRequest(updated, user.id));
 });
